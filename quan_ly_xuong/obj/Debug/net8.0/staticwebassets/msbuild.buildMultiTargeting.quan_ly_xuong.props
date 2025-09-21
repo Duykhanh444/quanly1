@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="..\build\quan_ly_xuong.props" />
+</Project>
