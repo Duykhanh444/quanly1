@@ -1,3 +1,4 @@
+// models/hoadon.dart
 import 'hoadon_item.dart';
 
 class HoaDon {
@@ -7,7 +8,13 @@ class HoaDon {
   int tongTien;
   DateTime? ngayLap;
   String? trangThai;
-  String? loaiHoaDon; // null nếu chưa chọn
+  String? loaiHoaDon; // "Nhập" hoặc "Xuất"
+  String? phuongThuc; // "Tiền mặt" hoặc "Chuyển khoản"
+
+  // Thông tin nhà cung cấp (nếu là Hóa đơn Nhập)
+  String? supplierBankName;
+  String? supplierAccount;
+  String? supplierAccountName;
 
   HoaDon({
     this.id = 0,
@@ -16,7 +23,11 @@ class HoaDon {
     this.tongTien = 0,
     this.ngayLap,
     this.trangThai,
-    this.loaiHoaDon, // không có default, bắt buộc chọn
+    this.loaiHoaDon,
+    this.phuongThuc,
+    this.supplierBankName,
+    this.supplierAccount,
+    this.supplierAccountName,
   });
 
   factory HoaDon.fromJson(Map<String, dynamic> json) {
@@ -29,7 +40,11 @@ class HoaDon {
       tongTien: json['tongTien'] ?? 0,
       ngayLap: json['ngayLap'] != null ? DateTime.parse(json['ngayLap']) : null,
       trangThai: json['trangThai'],
-      loaiHoaDon: json['loaiHoaDon'], // giữ nguyên null nếu chưa chọn
+      loaiHoaDon: json['loaiHoaDon'],
+      phuongThuc: json['phuongThuc'],
+      supplierBankName: json['supplierBankName'],
+      supplierAccount: json['supplierAccount'],
+      supplierAccountName: json['supplierAccountName'],
     );
   }
 
@@ -41,7 +56,11 @@ class HoaDon {
       'tongTien': tongTien,
       'ngayLap': ngayLap?.toIso8601String(),
       'trangThai': trangThai,
-      'loaiHoaDon': loaiHoaDon, // sẽ null nếu chưa chọn
+      'loaiHoaDon': loaiHoaDon,
+      'phuongThuc': phuongThuc,
+      'supplierBankName': supplierBankName,
+      'supplierAccount': supplierAccount,
+      'supplierAccountName': supplierAccountName,
     };
   }
 

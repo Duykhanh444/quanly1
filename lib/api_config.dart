@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiConfig {
-  // ✅ ValueNotifier để lắng nghe khi host thay đổi
+  // ✅ Lắng nghe khi host thay đổi
   static ValueNotifier<String> hostNotifier = ValueNotifier<String>(
-    'http://192.168.0.113:5000',
+    'http://192.168.0.113:5000', // Đặt IP LAN máy bạn ở đây
   );
 
   static const _hostKey = 'api_host';
@@ -28,6 +28,6 @@ class ApiConfig {
   // ✅ Lấy host hiện tại
   static String get host => hostNotifier.value;
 
-  // ✅ Thêm getter apiBase để ApiService sử dụng
-  static String get apiBase => hostNotifier.value;
+  // ✅ Base URL API
+  static String get apiBase => '$host/api';
 }
