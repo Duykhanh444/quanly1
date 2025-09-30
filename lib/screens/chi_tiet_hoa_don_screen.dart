@@ -61,9 +61,9 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
 
     if (result != null) {
       Navigator.pop(context, result);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Đã lưu hóa đơn lên server")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text("Đã lưu hóa đơn")));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Lưu hóa đơn thất bại, vui lòng thử lại")),
@@ -313,16 +313,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
               ["Xuất", "Nhập"],
               (val) => setState(() => hd.loaiHoaDon = val),
             ),
-            _buildStatusCard(
-              "Trạng thái",
-              hd.trangThai!,
-              _daThanhToan ? Colors.green : Colors.orange,
-            ),
-            _buildStatusCard(
-              "Tổng tiền",
-              "${formatNumber(hd.tongTien)} VND",
-              Colors.blue,
-            ),
             _buildDropdownCard(
               "Phương thức thanh toán",
               hd.phuongThuc,
@@ -362,6 +352,18 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
                 ),
               );
             }),
+
+            const SizedBox(height: 12),
+            _buildStatusCard(
+              "Trạng thái",
+              hd.trangThai!,
+              _daThanhToan ? Colors.green : Colors.orange,
+            ),
+            _buildStatusCard(
+              "Tổng tiền",
+              "${formatNumber(hd.tongTien)} VND",
+              Colors.teal, // ✅ đổi màu xanh lá dễ nhìn hơn
+            ),
 
             if (!_daThanhToan) ...[
               const SizedBox(height: 12),

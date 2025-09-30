@@ -5,6 +5,9 @@ import 'package:intl/intl.dart';
 import '../models/hoadon.dart';
 import '../services/api_service.dart';
 import 'chi_tiet_hoa_don_screen.dart';
+import 'danh_sach_nhan_vien_screen.dart';
+import 'kho_hang_screen.dart';
+import '../main.dart'; // 🔹 để gọi MyApp khi quay về Trang chủ
 
 class HoaDonScreen extends StatefulWidget {
   const HoaDonScreen({super.key});
@@ -22,6 +25,8 @@ class _HoaDonScreenState extends State<HoaDonScreen>
   bool _isSearching = false;
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
+
+  int _currentIndex = 1; // ✅ tab Hóa Đơn
 
   @override
   void initState() {
@@ -107,7 +112,7 @@ class _HoaDonScreenState extends State<HoaDonScreen>
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text("Xóa"),
+            child: const Text("Xóa tất cả"),
           ),
         ],
       ),
@@ -153,8 +158,6 @@ class _HoaDonScreenState extends State<HoaDonScreen>
                 context,
                 MaterialPageRoute(builder: (_) => ChiTietHoaDonScreen(hd: hd)),
               );
-
-              // Sau khi trở về, reload danh sách từ API
               _loadDanhSach();
             },
             title: Text(
@@ -205,87 +208,232 @@ class _HoaDonScreenState extends State<HoaDonScreen>
   // -------------------- Build Scaffold --------------------
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 2,
-      child: Scaffold(
-        appBar: AppBar(
-          title: _isSearching
-              ? TextField(
-                  controller: _searchController,
-                  autofocus: true,
-                  decoration: const InputDecoration(
-                    hintText: "Nhập mã hóa đơn...",
-                    border: InputBorder.none,
-                  ),
-                  onChanged: (val) => setState(() => _searchQuery = val.trim()),
-                )
-              : const Text("Danh sách Hóa đơn"),
-          actions: [
-            if (!_isSearching)
-              IconButton(
-                icon: const Icon(Icons.search),
-                onPressed: () {
-                  setState(() {
-                    _isSearching = true;
-                    _searchQuery = "";
-                    _searchController.clear();
-                  });
-                },
-              )
-            else
-              IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () {
-                  setState(() {
-                    _isSearching = false;
-                    _searchQuery = "";
-                  });
-                },
+    final today = DateFormat("dd/MM/yyyy").format(DateTime.now());
+
+    return Scaffold(
+      body: Column(
+        children: [
+          // ✅ Gradient Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
               ),
-            IconButton(
-              icon: const Icon(Icons.delete_forever),
-              onPressed: _daThanhToan.isEmpty ? null : _xoaTatCaDaThanhToan,
-              tooltip: "Xóa tất cả đã thanh toán",
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
             ),
-          ],
-          bottom: TabBar(
-            controller: _tabController,
-            tabs: const [
-              Tab(text: "Chưa thanh toán"),
-              Tab(text: "Đã thanh toán"),
-            ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Dòng chào + ngày
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Chào buổi sáng,",
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          today,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.warehouse,
+                          color: Colors.white,
+                          size: 28,
+                        ), // ✅ icon kho
+                        SizedBox(width: 6),
+                        Text(
+                          "VIETFLOW",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // Tiêu đề + nút search + xóa tất cả
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      "Danh sách hóa đơn",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: Icon(
+                            _isSearching ? Icons.close : Icons.search,
+                            color: Colors.white,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              if (_isSearching) {
+                                _isSearching = false;
+                                _searchQuery = "";
+                                _searchController.clear();
+                              } else {
+                                _isSearching = true;
+                              }
+                            });
+                          },
+                        ),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.delete_sweep,
+                            color: Colors.white,
+                          ),
+                          tooltip: "Xóa tất cả hóa đơn đã thanh toán",
+                          onPressed: _xoaTatCaDaThanhToan,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                if (_isSearching)
+                  TextField(
+                    controller: _searchController,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      hintText: "Tìm kiếm theo mã hóa đơn...",
+                      hintStyle: TextStyle(color: Colors.white70),
+                      border: InputBorder.none,
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchQuery = value;
+                      });
+                    },
+                  ),
+              ],
+            ),
           ),
-        ),
-        body: _isLoading
-            ? const Center(child: CircularProgressIndicator())
-            : TabBarView(
-                controller: _tabController,
-                children: [
-                  _buildList(_chuaThanhToan),
-                  _buildList(_daThanhToan),
-                ],
-              ),
-        floatingActionButton: FloatingActionButton(
-          onPressed: () async {
-            final hd = HoaDon(
-              id: 0,
-              maHoaDon: "HD-${DateTime.now().millisecondsSinceEpoch}",
-              loaiHoaDon: null,
-              items: [],
-              phuongThuc: null, // chưa chọn
-              trangThai: "Chưa thanh toán",
-              ngayLap: DateTime.now(),
-            );
 
-            await Navigator.push(
+          // ✅ TabBar
+          Material(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: const Color(0xFF4A00E0),
+              labelColor: const Color(0xFF4A00E0),
+              unselectedLabelColor: Colors.grey,
+              tabs: const [
+                Tab(text: "Chưa thanh toán"),
+                Tab(text: "Đã thanh toán"),
+              ],
+            ),
+          ),
+
+          // ✅ Nội dung
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [
+                      _buildList(_chuaThanhToan),
+                      _buildList(_daThanhToan),
+                    ],
+                  ),
+          ),
+        ],
+      ),
+
+      // ✅ FloatingActionButton để thêm mới hóa đơn
+      floatingActionButton: FloatingActionButton(
+        backgroundColor: const Color(0xFF4A00E0),
+        onPressed: () async {
+          final hd = HoaDon(
+            id: 0,
+            maHoaDon: "HD-${DateTime.now().millisecondsSinceEpoch}",
+            loaiHoaDon: null,
+            items: [],
+            phuongThuc: null,
+            trangThai: "Chưa thanh toán",
+            ngayLap: DateTime.now(),
+          );
+
+          await Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => ChiTietHoaDonScreen(hd: hd)),
+          );
+          _loadDanhSach();
+        },
+        child: const Icon(Icons.add, color: Colors.white),
+      ),
+
+      // ✅ BottomNavigationBar
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          if (index == 0) {
+            Navigator.pushReplacement(
               context,
-              MaterialPageRoute(builder: (_) => ChiTietHoaDonScreen(hd: hd)),
+              MaterialPageRoute(builder: (_) => const DanhSachNhanVienScreen()),
             );
-
-            _loadDanhSach();
-          },
-          child: const Icon(Icons.add),
-        ),
+          }
+          if (index == 1) {
+            // Đang ở Hóa Đơn
+          }
+          if (index == 2) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => KhoHangScreen()),
+            );
+          }
+          if (index == 3) {
+            // 🔹 Quay về trang chủ (HomeScreen)
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF4A00E0),
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: "Hóa Đơn",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.warehouse),
+            label: "Kho Hàng",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Trang chủ"),
+        ],
       ),
     );
   }

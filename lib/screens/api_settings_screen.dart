@@ -32,7 +32,6 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
       return;
     }
 
-    // Nếu quên http:// hoặc https:// → tự thêm http://
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
       trimmed = 'http://$trimmed';
     }
@@ -73,7 +72,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
     }
   }
 
-  /// 🔹 Lưu host vào SharedPreferences
+  /// 🔹 Lưu host
   Future<void> _saveHost(String host) async {
     String trimmed = host.trim();
     if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
@@ -101,10 +100,21 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const Color mainColor1 = Color(0xFF4A00E0);
+    const Color mainColor2 = Color(0xFF8E2DE2);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Cài đặt API"),
-        backgroundColor: Colors.teal,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [mainColor1, mainColor2],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.qr_code_scanner),
@@ -140,7 +150,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                         ? null
                         : () => _checkConnection(_controller.text),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
+                      backgroundColor: mainColor1,
                       minimumSize: const Size(double.infinity, 50),
                     ),
                     icon: _checking
@@ -164,7 +174,7 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                   child: ElevatedButton.icon(
                     onPressed: () => _saveHost(_controller.text),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.teal,
+                      backgroundColor: mainColor2,
                       minimumSize: const Size(double.infinity, 50),
                     ),
                     icon: const Icon(Icons.save),
@@ -188,7 +198,11 @@ class _ApiSettingsScreenState extends State<ApiSettingsScreen> {
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
                   value,
-                  style: const TextStyle(fontSize: 16, color: Colors.blue),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    color: mainColor1,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
             ),
@@ -204,10 +218,21 @@ class _QrScannerScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const Color mainColor1 = Color(0xFF4A00E0);
+    const Color mainColor2 = Color(0xFF8E2DE2);
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("Quét QR API"),
-        backgroundColor: Colors.teal,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [mainColor1, mainColor2],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+          ),
+        ),
       ),
       body: MobileScanner(
         onDetect: (capture) {

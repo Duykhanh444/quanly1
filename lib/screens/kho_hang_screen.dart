@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../models/khohang.dart';
 import '../services/api_service.dart';
 import 'chi_tiet_kho_hang_screen.dart';
 import 'them_kho_hang_screen.dart';
+import 'danh_sach_nhan_vien_screen.dart';
+import 'hoa_don_screen.dart';
+import '../main.dart';
 
 class KhoHangScreen extends StatefulWidget {
   @override
@@ -13,7 +17,10 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
   List<KhoHang> _danhSachKho = [];
+  List<KhoHang> _filteredKho = [];
   bool _isLoading = true;
+  int _currentIndex = 2; // ✅ Tab Kho Hàng
+  String _searchText = "";
 
   @override
   void initState() {
@@ -27,8 +34,23 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     final ds = await ApiService.layDanhSachKhoHang();
     setState(() {
       _danhSachKho = ds;
+      _applySearch();
       _isLoading = false;
     });
+  }
+
+  void _applySearch() {
+    if (_searchText.isEmpty) {
+      _filteredKho = _danhSachKho;
+    } else {
+      _filteredKho = _danhSachKho
+          .where(
+            (k) => (k.tenKho ?? "").toLowerCase().contains(
+              _searchText.toLowerCase(),
+            ),
+          )
+          .toList();
+    }
   }
 
   Future<void> _xoaKhoHang(int id) async {
@@ -44,7 +66,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text("Xóa"),
+            child: Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -56,31 +78,183 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     }
   }
 
+  Future<void> _xoaTatCaLichSu() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text("Xóa tất cả lịch sử"),
+        content: Text("Bạn có chắc muốn xóa toàn bộ kho đã xuất không?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text("Hủy"),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text("Xóa", style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      for (var kho in _danhSachKho.where((k) => k.trangThai == "Đã xuất")) {
+        await ApiService.xoaKhoHang(kho.id);
+      }
+      _loadDanhSach();
+    }
+  }
+
   String _formatDate(DateTime date) {
-    return "${date.day.toString().padLeft(2, '0')}-${date.month.toString().padLeft(2, '0')}-${date.year}";
+    return DateFormat("dd/MM/yyyy").format(date);
   }
 
   @override
   Widget build(BuildContext context) {
+    final today = DateFormat("dd/MM/yyyy").format(DateTime.now());
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Kho Hàng"),
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: [
-            Tab(text: "Đang Hoạt Động"),
-            Tab(text: "Lịch Sử"),
-          ],
-        ),
-      ),
-      body: _isLoading
-          ? Center(child: CircularProgressIndicator())
-          : TabBarView(
-              controller: _tabController,
-              children: [_buildList("Hoạt động"), _buildList("Đã xuất")],
+      body: Column(
+        children: [
+          // ✅ Gradient Header
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
+              ),
             ),
+            child: Column(
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    // Bên trái
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Danh sách kho hàng",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          today,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.9),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                    // Logo app
+                    Row(
+                      children: const [
+                        Icon(
+                          Icons.warehouse,
+                          color: Colors.white,
+                          size: 28,
+                        ), // ✅ icon kho
+                        SizedBox(width: 6),
+                        Text(
+                          "VIETFLOW",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 18,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                // ✅ Search bar
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: "Tìm kiếm kho hàng...",
+                      border: InputBorder.none,
+                      icon: Icon(Icons.search, color: Colors.grey),
+                    ),
+                    onChanged: (value) {
+                      setState(() {
+                        _searchText = value;
+                        _applySearch();
+                      });
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ✅ TabBar (thêm nút xóa ở tab Lịch sử)
+          Material(
+            color: Colors.white,
+            child: TabBar(
+              controller: _tabController,
+              indicatorColor: const Color(0xFF4A00E0),
+              labelColor: const Color(0xFF4A00E0),
+              unselectedLabelColor: Colors.grey,
+              tabs: [
+                Tab(text: "Đang hoạt động"),
+                Tab(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Text("Lịch sử"),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        padding: EdgeInsets.zero,
+                        constraints: BoxConstraints(),
+                        icon: Icon(
+                          Icons.delete_forever,
+                          color: Colors.red,
+                          size: 20,
+                        ),
+                        onPressed: _xoaTatCaLichSu,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // ✅ Nội dung
+          Expanded(
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : TabBarView(
+                    controller: _tabController,
+                    children: [_buildList("Hoạt động"), _buildList("Đã xuất")],
+                  ),
+          ),
+        ],
+      ),
+
+      // ✅ FloatingActionButton thêm kho
       floatingActionButton: FloatingActionButton(
-        child: Icon(Icons.add),
+        backgroundColor: const Color(0xFF4A00E0),
+        child: const Icon(Icons.add, color: Colors.white),
         onPressed: () async {
           final result = await Navigator.push(
             context,
@@ -89,16 +263,59 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           if (result == true) _loadDanhSach();
         },
       ),
+
+      // ✅ BottomNavigationBar
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          if (index == 0) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const DanhSachNhanVienScreen()),
+            );
+          }
+          if (index == 1) {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (_) => const HoaDonScreen()),
+            );
+          }
+          if (index == 2) {
+            // Đang ở Kho Hàng
+          }
+          if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/home');
+          }
+        },
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF4A00E0),
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: "Hóa Đơn",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.warehouse),
+            label: "Kho Hàng",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Trang chủ"),
+        ],
+      ),
     );
   }
 
+  // ✅ Danh sách kho
   Widget _buildList(String trangThai) {
-    final ds = _danhSachKho.where((k) => k.trangThai == trangThai).toList();
+    final ds = _filteredKho.where((k) => k.trangThai == trangThai).toList();
     ds.sort(
       (a, b) => (a.ngayNhap ?? DateTime.now()).compareTo(
         b.ngayNhap ?? DateTime.now(),
       ),
-    ); // sắp xếp theo ngày nhập
+    );
 
     if (ds.isEmpty) return Center(child: Text("Không có dữ liệu"));
 

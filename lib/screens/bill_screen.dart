@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:pdf/pdf.dart';
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
+
 import '../models/hoadon.dart';
 import '../utils/bill_config.dart';
 import '../widgets/vietqr_network_image.dart';
@@ -29,21 +34,26 @@ class _BillScreenState extends State<BillScreen> {
   final _accountNameController = TextEditingController();
   final _amountController = TextEditingController();
 
+  // ✅ Shop info
+  final _shopNameController = TextEditingController();
+  final _shopAddressController = TextEditingController();
+  final _shopPhoneController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _hoaDon = widget.hoaDon;
     _amountController.text = _hoaDon.tongTien.toString();
-
     _loadSavedDefaults();
 
     if (_hoaDon.supplierBankName != null) _bankName = _hoaDon.supplierBankName;
-    if (_hoaDon.supplierAccount != null)
+    if (_hoaDon.supplierAccount != null) {
       _accountController.text = _hoaDon.supplierAccount!;
-    if (_hoaDon.supplierAccountName != null)
+    }
+    if (_hoaDon.supplierAccountName != null) {
       _accountNameController.text = _hoaDon.supplierAccountName!;
+    }
 
-    // Chuẩn hóa ngân hàng, tránh lỗi Dropdown null/trùng
     if (_bankName == null ||
         !BillConfig.bankNameToBin.keys
             .map((e) => e.toUpperCase())
@@ -62,7 +72,21 @@ class _BillScreenState extends State<BillScreen> {
           prefs.getString('defaultAccount') ?? _accountController.text;
       _accountNameController.text =
           prefs.getString('defaultAccountName') ?? _accountNameController.text;
+
+      _shopNameController.text =
+          prefs.getString('shopName') ?? BillConfig.shopName;
+      _shopAddressController.text =
+          prefs.getString('shopAddress') ?? BillConfig.shopAddress;
+      _shopPhoneController.text =
+          prefs.getString('shopPhone') ?? BillConfig.shopPhone;
     });
+  }
+
+  Future<void> _saveShopInfo() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('shopName', _shopNameController.text);
+    await prefs.setString('shopAddress', _shopAddressController.text);
+    await prefs.setString('shopPhone', _shopPhoneController.text);
   }
 
   Future<void> _saveDefaults() async {
@@ -72,15 +96,6 @@ class _BillScreenState extends State<BillScreen> {
     await prefs.setString('defaultAccountName', _accountNameController.text);
   }
 
-  @override
-  void dispose() {
-    _accountController.dispose();
-    _accountNameController.dispose();
-    _amountController.dispose();
-    super.dispose();
-  }
-
-  bool get isNhap => _hoaDon.loaiHoaDon == 'Nhập';
   bool get isChuyenKhoan => widget.phuongThuc.toLowerCase().contains('chuyển');
   bool get isTienMat => widget.phuongThuc.toLowerCase().contains('mặt');
 
@@ -91,10 +106,6 @@ class _BillScreenState extends State<BillScreen> {
       int.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
       _hoaDon.tongTien;
 
-  String get selectedBankBin =>
-      BillConfig.bankNameToBin[_bankName?.toUpperCase() ?? 'ACB'] ??
-      BillConfig.shopBankBin;
-
   String get selectedAccountNumber => _accountController.text.isNotEmpty
       ? _accountController.text
       : BillConfig.shopBankAccount;
@@ -103,134 +114,196 @@ class _BillScreenState extends State<BillScreen> {
       ? _accountNameController.text
       : BillConfig.shopAccountName;
 
-  Future<void> _editQRInfo() async {
-    final bankController = TextEditingController(text: _bankName);
-    final accountController = TextEditingController(
-      text: _accountController.text,
-    );
-    final accountNameController = TextEditingController(
-      text: _accountNameController.text,
-    );
-    final amountController = TextEditingController(
-      text: _amountController.text,
-    );
-
-    await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text("Chỉnh sửa thông tin QR"),
-        content: SingleChildScrollView(
-          child: Column(
+  // ✅ tạo PDF
+  Future<pw.Document> _generatePdf() async {
+    final pdf = pw.Document();
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a4,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              DropdownButtonFormField<String>(
-                value: bankController.text.toUpperCase(),
-                decoration: const InputDecoration(labelText: 'Ngân hàng'),
-                items: BillConfig.bankNameToBin.keys
-                    .map(
-                      (b) => DropdownMenuItem(
-                        value: b.toUpperCase(),
-                        child: Text(b),
-                      ),
-                    )
-                    .toList(),
-                onChanged: (v) {
-                  bankController.text = v ?? bankController.text;
-                  _updateQR(
-                    bankController.text,
-                    accountController.text,
-                    accountNameController.text,
-                    amountController.text,
-                  );
-                },
+              pw.Text(
+                _shopNameController.text,
+                style: pw.TextStyle(
+                  fontSize: 18,
+                  fontWeight: pw.FontWeight.bold,
+                ),
               ),
-              TextField(
-                controller: accountController,
-                decoration: const InputDecoration(labelText: 'Số tài khoản'),
-                keyboardType: TextInputType.number,
-                onChanged: (val) {
-                  _updateQR(
-                    bankController.text,
-                    val,
-                    accountNameController.text,
-                    amountController.text,
-                  );
-                },
+              pw.Text(_shopAddressController.text),
+              pw.Text("ĐT: ${_shopPhoneController.text}"),
+              pw.Divider(),
+              pw.Text("Hóa đơn: ${_hoaDon.maHoaDon}"),
+              pw.Text(
+                "Ngày: ${DateFormat('dd/MM/yyyy HH:mm').format(_hoaDon.ngayLap ?? DateTime.now())}",
               ),
-              TextField(
-                controller: accountNameController,
-                decoration: const InputDecoration(labelText: 'Chủ tài khoản'),
-                onChanged: (val) {
-                  _updateQR(
-                    bankController.text,
-                    accountController.text,
-                    val,
-                    amountController.text,
-                  );
-                },
+              pw.Text("Thanh toán: ${widget.phuongThuc}"),
+              pw.Divider(),
+              ..._hoaDon.items.map(
+                (it) => pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text(it.tenHang),
+                    pw.Text(
+                      "${it.soLuong} x ${formatMoney(it.giaTien)} = ${formatMoney(it.thanhTien())}",
+                    ),
+                  ],
+                ),
               ),
-              TextField(
-                controller: amountController,
-                decoration: const InputDecoration(labelText: 'Số tiền (VND)'),
-                keyboardType: TextInputType.number,
-                onChanged: (val) {
-                  _updateQR(
-                    bankController.text,
-                    accountController.text,
-                    accountNameController.text,
-                    val,
-                  );
-                },
+              pw.Divider(),
+              pw.Text(
+                "TỔNG CỘNG: ${formatMoney(_hoaDon.tongTien)}",
+                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
               ),
             ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Hủy"),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              _saveDefaults();
-              Navigator.pop(context);
-            },
-            child: const Text("Lưu mặc định"),
-          ),
-        ],
+          );
+        },
       ),
+    );
+    return pdf;
+  }
+
+  Future<void> _printBill() async {
+    final pdf = await _generatePdf();
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
     );
   }
 
-  void _updateQR(
-    String bank,
-    String account,
-    String accountName,
-    String amount,
-  ) {
-    setState(() {
-      _bankName = bank;
-      _accountController.text = account;
-      _accountNameController.text = accountName;
-      _amountController.text = amount;
-    });
+  Future<void> _shareBill() async {
+    final pdf = await _generatePdf();
+    final bytes = await pdf.save();
+    await Printing.sharePdf(
+      bytes: bytes,
+      filename: 'hoa_don_${_hoaDon.maHoaDon}.pdf',
+    );
+  }
+
+  // ✅ Dialog sửa Shop Info
+  void _editShopInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Sửa thông tin cửa hàng"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _shopNameController,
+                decoration: const InputDecoration(labelText: "Tên cửa hàng"),
+              ),
+              TextField(
+                controller: _shopAddressController,
+                decoration: const InputDecoration(labelText: "Địa chỉ"),
+              ),
+              TextField(
+                controller: _shopPhoneController,
+                decoration: const InputDecoration(labelText: "Số điện thoại"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Hủy"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _saveShopInfo();
+                setState(() {});
+                Navigator.pop(ctx);
+              },
+              child: const Text("Lưu"),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  // ✅ Dialog sửa QR Info
+  void _editQRInfo() {
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text("Sửa thông tin chuyển khoản"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: _accountNameController,
+                decoration: const InputDecoration(labelText: "Tên tài khoản"),
+              ),
+              TextField(
+                controller: _accountController,
+                decoration: const InputDecoration(labelText: "Số tài khoản"),
+              ),
+              TextField(
+                controller: _amountController,
+                decoration: const InputDecoration(labelText: "Số tiền"),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Hủy"),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                await _saveDefaults();
+                setState(() {});
+                Navigator.pop(ctx);
+              },
+              child: const Text("Lưu"),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Hóa đơn')),
+      appBar: AppBar(
+        title: const Text('Hóa đơn'),
+        actions: [
+          IconButton(icon: const Icon(Icons.print), onPressed: _printBill),
+          IconButton(icon: const Icon(Icons.share), onPressed: _shareBill),
+        ],
+      ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text(
-              BillConfig.shopName,
-              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
+            GestureDetector(
+              onTap: _editShopInfo,
+              child: Column(
+                children: [
+                  Text(
+                    _shopNameController.text,
+                    style: const TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  Text(
+                    _shopAddressController.text,
+                    textAlign: TextAlign.center,
+                  ),
+                  Text(
+                    "ĐT: ${_shopPhoneController.text}",
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
             ),
-            Text(BillConfig.shopAddress, textAlign: TextAlign.center),
-            Text('ĐT: ${BillConfig.shopPhone}', textAlign: TextAlign.center),
             const Divider(),
             _infoRow('Mã HĐ', _hoaDon.maHoaDon),
             _infoRow(
@@ -245,7 +318,7 @@ class _BillScreenState extends State<BillScreen> {
             ..._hoaDon.items.map(
               (it) => _infoRow(
                 it.tenHang,
-                '${it.soLuong} x ${formatMoney(it.giaTien)} = ${formatMoney(it.thanhTien())}',
+                "${it.soLuong} x ${formatMoney(it.giaTien)} = ${formatMoney(it.thanhTien())}",
               ),
             ),
             const Divider(),
@@ -288,7 +361,7 @@ class _BillScreenState extends State<BillScreen> {
             ] else if (isTienMat)
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('Thanh toán tiền mặt - Không cần QR'),
+                child: Text('Thanh toán tiền mặt'),
               ),
             const SizedBox(height: 20),
             ElevatedButton(

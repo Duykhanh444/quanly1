@@ -27,19 +27,26 @@ class QuanLyXuongApp extends StatelessWidget {
       valueListenable: ApiConfig.hostNotifier,
       builder: (context, host, _) {
         return MaterialApp(
-          title: 'Quản Lý Xưởng Gỗ',
-          theme: ThemeData(primarySwatch: Colors.blue),
+          title: 'Quản Lý',
+          theme: ThemeData(
+            fontFamily: 'Roboto',
+            primaryColor: const Color(0xFF4A00E0), // tím đậm
+            colorScheme: ColorScheme.fromSwatch().copyWith(
+              secondary: const Color(0xFF8E2DE2), // tím nhạt
+            ),
+          ),
           debugShowCheckedModeBanner: false,
           home: const SplashScreen(),
           routes: {
-            '/login': (context) => LoginScreen(),
-            '/register': (context) => RegisterScreen(),
-            '/home': (context) => HomeScreen(),
-            '/danh-sach-nhan-vien': (context) => DanhSachNhanVienScreen(),
+            '/welcome': (context) => const WelcomeScreen(),
+            '/login': (context) => const LoginScreen(),
+            '/register': (context) => const RegisterScreen(),
+            '/home': (context) => const HomeScreen(),
+            '/danh-sach-nhan-vien': (context) => const DanhSachNhanVienScreen(),
             '/kho-hang': (context) => KhoHangScreen(),
-            '/hoa-don': (context) => HoaDonScreen(),
-            '/cai-dat-api': (context) => ApiSettingsScreen(),
-            '/show-qr': (context) => ShowQrScreen(),
+            '/hoa-don': (context) => const HoaDonScreen(),
+            '/cai-dat-api': (context) => const ApiSettingsScreen(),
+            '/show-qr': (context) => const ShowQrScreen(),
           },
         );
       },
@@ -50,7 +57,6 @@ class QuanLyXuongApp extends StatelessWidget {
 /// ================= SPLASH SCREEN =================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
-
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
@@ -63,32 +69,134 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 
   void _checkToken() async {
-    await Future.delayed(const Duration(seconds: 1));
+    await Future.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
     if (token != null && token.isNotEmpty) {
-      ApiService.token = token; // load token vào ApiService
+      ApiService.token = token;
       if (context.mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } else {
       if (context.mounted) {
-        Navigator.pushReplacementNamed(context, '/login');
+        Navigator.pushReplacementNamed(context, '/welcome');
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: const Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.warehouse, size: 100, color: Colors.white),
+              SizedBox(height: 20),
+              Text(
+                "VIETFLOW",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
+              SizedBox(height: 30),
+              CircularProgressIndicator(color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ================= WELCOME SCREEN =================
+class WelcomeScreen extends StatelessWidget {
+  const WelcomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.warehouse, size: 100, color: Colors.white),
+            const SizedBox(height: 30),
+            const Text(
+              "Welcome!",
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              "Quản lý dễ dàng",
+              style: TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+            const SizedBox(height: 50),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/login');
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF4A00E0),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Text("Đăng nhập", style: TextStyle(fontSize: 18)),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton(
+              onPressed: () {
+                Navigator.pushNamed(context, '/register');
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.white,
+                side: const BorderSide(color: Colors.white),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+              ),
+              child: const Text("Đăng ký", style: TextStyle(fontSize: 18)),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
 /// ================= HOME SCREEN =================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
-
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
@@ -127,117 +235,127 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
-      appBar: AppBar(
-        title: const Text(
-          "Quản Lý Xưởng Gỗ",
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
         ),
-        centerTitle: true,
-        backgroundColor: Colors.teal[400],
-        elevation: 8,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/cai-dat-api'),
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () async {
-              final prefs = await SharedPreferences.getInstance();
-              await prefs.clear();
-              ApiService.token = null;
-              if (mounted) Navigator.pushReplacementNamed(context, '/login');
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              decoration: BoxDecoration(
-                color: Colors.teal[300],
-                borderRadius: BorderRadius.circular(20),
+        child: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header: chào + logo
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      "Chào buổi sáng,\n${getToday()}",
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Row(
+                      children: const [
+                        Icon(Icons.warehouse, color: Colors.white, size: 28),
+                        SizedBox(width: 6),
+                        Text(
+                          "VIETFLOW",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text(
-                    "Trang chủ",
-                    style: TextStyle(fontSize: 22, color: Colors.white),
-                  ),
-                  Text(
-                    getToday(),
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+              const SizedBox(height: 10),
+              Expanded(
+                child: Container(
+                  decoration: const BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.vertical(
+                      top: Radius.circular(30),
                     ),
                   ),
-                ],
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      buildCardItem(
+                        icon: Icons.people,
+                        title: "Nhân Viên",
+                        subtitle: "$_soNhanVien nhân viên",
+                        onTap: () async {
+                          await Navigator.pushNamed(
+                            context,
+                            '/danh-sach-nhan-vien',
+                          );
+                          _loadSoNhanVien();
+                        },
+                      ),
+                      buildCardItem(
+                        icon: Icons.receipt,
+                        title: "Hóa Đơn",
+                        subtitle: "$_soHoaDon hóa đơn",
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/hoa-don');
+                          _loadSoHoaDon();
+                        },
+                      ),
+                      buildCardItem(
+                        icon: Icons.warehouse,
+                        title: "Kho Hàng",
+                        subtitle: "$_soSanPham sản phẩm",
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/kho-hang');
+                          _loadSoKhoHang();
+                        },
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView(
-                physics: const BouncingScrollPhysics(),
-                children: [
-                  buildStatCard(
-                    title: "Tổng số nhân viên",
-                    value: "$_soNhanVien",
-                    color: Colors.blue,
-                    onTap: () async {
-                      await Navigator.pushNamed(
-                        context,
-                        '/danh-sach-nhan-vien',
-                      );
-                      _loadSoNhanVien();
-                    },
-                  ),
-                  buildStatCard(
-                    title: "Tổng số hóa đơn",
-                    value: "$_soHoaDon",
-                    color: Colors.purple,
-                    onTap: () async {
-                      await Navigator.pushNamed(context, '/hoa-don');
-                      _loadSoHoaDon();
-                    },
-                  ),
-                  buildStatCard(
-                    title: "Kho Hàng",
-                    value: "$_soSanPham",
-                    color: Colors.teal,
-                    onTap: () async {
-                      await Navigator.pushNamed(context, '/kho-hang');
-                      _loadSoKhoHang();
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) async {
           setState(() => _currentIndex = index);
-          if (index == 0)
-            await Navigator.pushReplacementNamed(
-              context,
-              '/danh-sach-nhan-vien',
+          if (index == 0) {
+            await Navigator.pushNamed(context, '/danh-sach-nhan-vien');
+          }
+          if (index == 1) {
+            await Navigator.pushNamed(context, '/hoa-don');
+          }
+          if (index == 2) {
+            await Navigator.pushNamed(context, '/kho-hang');
+          }
+          if (index == 3) {
+            showModalBottomSheet(
+              context: context,
+              shape: const RoundedRectangleBorder(
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              builder: (context) => const AccountSheet(),
             );
-          if (index == 1)
-            await Navigator.pushReplacementNamed(context, '/hoa-don');
-          if (index == 2)
-            await Navigator.pushReplacementNamed(context, '/kho-hang');
+          }
         },
-        backgroundColor: Colors.teal[400],
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
+        backgroundColor: Colors.white,
+        selectedItemColor: const Color(0xFF4A00E0), // tím đậm
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
           BottomNavigationBarItem(icon: Icon(Icons.receipt), label: "Hóa Đơn"),
@@ -245,53 +363,162 @@ class _HomeScreenState extends State<HomeScreen> {
             icon: Icon(Icons.warehouse),
             label: "Kho Hàng",
           ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.account_circle),
+            label: "Tài khoản",
+          ),
         ],
       ),
     );
   }
 
-  Widget buildStatCard({
+  Widget buildCardItem({
+    required IconData icon,
     required String title,
-    required String value,
-    required Color color,
-    required Function() onTap,
+    required String subtitle,
+    required VoidCallback onTap,
   }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 10),
-        padding: const EdgeInsets.all(20),
-        height: 120,
+        margin: const EdgeInsets.only(bottom: 16),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(25),
-          gradient: LinearGradient(
-            colors: [color.withOpacity(0.9), color],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            Text(
-              value,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 28,
-                fontWeight: FontWeight.bold,
-              ),
+          color: Colors.grey[50],
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 6,
+              offset: Offset(0, 3),
             ),
           ],
         ),
+        child: Row(
+          children: [
+            CircleAvatar(
+              radius: 28,
+              backgroundColor: const Color(
+                0xFF4A00E0,
+              ).withOpacity(0.1), // nền tím nhạt
+              child: Icon(
+                icon,
+                size: 28,
+                color: const Color(0xFF4A00E0),
+              ), // icon tím đậm
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                  ),
+                ],
+              ),
+            ),
+            const Icon(Icons.chevron_right, color: Colors.grey),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class AccountSheet extends StatefulWidget {
+  const AccountSheet({super.key});
+
+  @override
+  State<AccountSheet> createState() => _AccountSheetState();
+}
+
+class _AccountSheetState extends State<AccountSheet> {
+  String _userName = "Tên người dùng";
+  String _userEmail = "email@example.com";
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userName = prefs.getString("userName") ?? "Tên người dùng";
+      _userEmail = prefs.getString("userEmail") ?? "email@example.com";
+    });
+  }
+
+  Future<void> _logout() async {
+    final prefs = await SharedPreferences.getInstance();
+
+    final username = prefs.getString("username");
+    final password = prefs.getString("password");
+    final remember = prefs.getBool("rememberMe") ?? false;
+
+    await prefs.clear();
+
+    if (remember) {
+      await prefs.setString("username", username ?? "");
+      await prefs.setString("password", password ?? "");
+      await prefs.setBool("rememberMe", true);
+    }
+
+    ApiService.token = null;
+
+    if (mounted) {
+      Navigator.pushReplacementNamed(context, "/welcome");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          CircleAvatar(
+            radius: 40,
+            backgroundColor: const Color(0xFF4A00E0),
+            child: const Icon(Icons.person, size: 50, color: Colors.white),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            _userName,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(_userEmail, style: const TextStyle(color: Colors.grey)),
+          const SizedBox(height: 24),
+          ListTile(
+            leading: const Icon(Icons.settings),
+            title: const Text("Cài đặt"),
+            onTap: () {
+              Navigator.pushNamed(context, "/settings");
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.logout),
+            title: const Text("Đăng xuất"),
+            onTap: _logout,
+          ),
+        ],
       ),
     );
   }

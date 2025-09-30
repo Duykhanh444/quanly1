@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({Key? key}) : super(key: key);
+  const RegisterScreen({super.key});
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -14,24 +15,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
 
-  // 🔹 Hàm kiểm tra password hợp lệ
   String? _validatePassword(String password) {
-    if (password.length < 6) {
-      return "⚠️ Mật khẩu phải ít nhất 6 ký tự";
+    if (password.length < 6) return "⚠️ Mật khẩu ít nhất 6 ký tự";
+    if (!RegExp(r'[A-Z]').hasMatch(password)) return "⚠️ Phải có 1 chữ in hoa";
+    if (!RegExp(r'[a-z]').hasMatch(password)) return "⚠️ Phải có 1 chữ thường";
+    if (!RegExp(r'[0-9]').hasMatch(password)) return "⚠️ Phải có 1 số";
+    if (!RegExp(r'[!@#$%^&*(),.?\":{}|<>]').hasMatch(password)) {
+      return "⚠️ Phải có 1 ký tự đặc biệt";
     }
-    if (!RegExp(r'[A-Z]').hasMatch(password)) {
-      return "⚠️ Mật khẩu phải chứa ít nhất 1 chữ in hoa (A-Z)";
-    }
-    if (!RegExp(r'[a-z]').hasMatch(password)) {
-      return "⚠️ Mật khẩu phải chứa ít nhất 1 chữ thường (a-z)";
-    }
-    if (!RegExp(r'[0-9]').hasMatch(password)) {
-      return "⚠️ Mật khẩu phải chứa ít nhất 1 số (0-9)";
-    }
-    if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(password)) {
-      return "⚠️ Mật khẩu phải chứa ít nhất 1 ký tự đặc biệt (!@#\$...)";
-    }
-    return null; // hợp lệ
+    return null;
   }
 
   Future<void> _dangKy() async {
@@ -39,16 +31,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
     final password = _passwordController.text.trim();
     final email = _emailController.text.trim();
 
-    if (username.isEmpty || password.isEmpty) {
+    if (username.isEmpty || password.isEmpty || email.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text("⚠️ Vui lòng nhập tên đăng nhập và mật khẩu"),
-        ),
+        const SnackBar(content: Text("⚠️ Vui lòng nhập đầy đủ thông tin")),
       );
       return;
     }
 
-    // Kiểm tra password theo quy tắc
     final passwordError = _validatePassword(password);
     if (passwordError != null) {
       ScaffoldMessenger.of(
@@ -57,89 +46,158 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
-    if (mounted) setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
     final success = await ApiService.dangKy(
       username: username,
       password: password,
-      email: email.isEmpty ? null : email,
+      email: email,
     );
 
-    if (mounted) setState(() => _isLoading = false);
+    setState(() => _isLoading = false);
 
     if (success) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("✅ Đăng ký thành công")));
-      Navigator.pop(context);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString("userName", username);
+      await prefs.setString("userEmail", email);
+
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("✅ Đăng ký thành công")));
+        Navigator.pop(context);
+      }
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("❌ Đăng ký thất bại")));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text("❌ Đăng ký thất bại")));
+      }
     }
+  }
+
+  Widget _buildGradientButton(String text, VoidCallback onTap) {
+    return InkWell(
+      onTap: _isLoading ? null : onTap,
+      child: Container(
+        height: 50,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(25),
+          gradient: const LinearGradient(
+            colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+          ),
+        ),
+        alignment: Alignment.center,
+        child: _isLoading
+            ? const CircularProgressIndicator(color: Colors.white)
+            : Text(
+                text,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    bool isPassword = false,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword,
+      decoration: InputDecoration(
+        filled: true,
+        fillColor: Colors.white,
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.deepPurple),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Đăng ký"),
-        backgroundColor: Colors.teal,
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextField(
-              controller: _usernameController,
-              decoration: const InputDecoration(
-                labelText: "Tên đăng nhập",
-                prefixIcon: Icon(Icons.person),
-                border: OutlineInputBorder(),
-              ),
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+          ),
+        ),
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
+            child: Column(
+              children: [
+                const SizedBox(height: 16),
+                const Text(
+                  "Create Account",
+                  style: TextStyle(
+                    fontSize: 26,
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildTextField(
+                        label: "Email",
+                        icon: Icons.email,
+                        controller: _emailController,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        label: "Họ tên",
+                        icon: Icons.person,
+                        controller: _usernameController,
+                      ),
+                      const SizedBox(height: 16),
+                      _buildTextField(
+                        label: "Mật khẩu",
+                        icon: Icons.lock,
+                        controller: _passwordController,
+                        isPassword: true,
+                      ),
+                      const SizedBox(height: 20),
+                      _buildGradientButton("SIGN UP", _dangKy),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Text("Already have an account? "),
+                          GestureDetector(
+                            onTap: () => Navigator.pop(context),
+                            child: const Text(
+                              "Login",
+                              style: TextStyle(
+                                color: Colors.deepPurple,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _passwordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Mật khẩu",
-                prefixIcon: Icon(Icons.lock),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _emailController,
-              decoration: const InputDecoration(
-                labelText: "Email (tùy chọn)",
-                prefixIcon: Icon(Icons.email),
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _isLoading ? null : _dangKy,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.teal,
-                minimumSize: const Size(double.infinity, 50),
-              ),
-              child: _isLoading
-                  ? const CircularProgressIndicator(color: Colors.white)
-                  : const Text("Đăng ký", style: TextStyle(fontSize: 18)),
-            ),
-            const SizedBox(height: 20),
-            const Text(
-              "🔑 Quy tắc mật khẩu:\n"
-              "• Ít nhất 6 ký tự\n"
-              "• Có chữ in hoa (A-Z)\n"
-              "• Có chữ thường (a-z)\n"
-              "• Có số (0-9)\n"
-              "• Có ký tự đặc biệt (!@#...)\n",
-              style: TextStyle(color: Colors.black87),
-            ),
-          ],
+          ),
         ),
       ),
     );
