@@ -1,7 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/hoadon.dart';
+import '../models/khohang.dart';
+import '../models/nhanvien.dart';
 
+// ===== Firebase Auth + Google Mock =====
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+import 'package:google_sign_in_mocks/google_sign_in_mocks.dart';
+import 'screens/doanh_thu_screen.dart';
+
+// ===== Screens & Services =====
 import 'screens/danh_sach_nhan_vien_screen.dart';
 import 'screens/kho_hang_screen.dart';
 import 'screens/hoa_don_screen.dart';
@@ -11,6 +21,17 @@ import 'api_config.dart';
 import 'screens/api_settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+
+/// Mock Firebase & Google Sign-In (để test)
+final mockGoogleSignIn = MockGoogleSignIn();
+final mockFirebaseAuth = MockFirebaseAuth(
+  mockUser: MockUser(
+    isAnonymous: false,
+    email: 'mockuser@gmail.com',
+    displayName: 'Mock User',
+    uid: 'mock-uid-123',
+  ),
+);
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -39,7 +60,7 @@ class QuanLyXuongApp extends StatelessWidget {
           home: const SplashScreen(),
           routes: {
             '/welcome': (context) => const WelcomeScreen(),
-            '/login': (context) => const LoginScreen(),
+            '/login': (context) => LoginScreen(),
             '/register': (context) => const RegisterScreen(),
             '/home': (context) => const HomeScreen(),
             '/danh-sach-nhan-vien': (context) => const DanhSachNhanVienScreen(),
@@ -47,6 +68,7 @@ class QuanLyXuongApp extends StatelessWidget {
             '/hoa-don': (context) => const HoaDonScreen(),
             '/cai-dat-api': (context) => const ApiSettingsScreen(),
             '/show-qr': (context) => const ShowQrScreen(),
+            '/doanh-thu': (context) => const DoanhThuScreen(),
           },
         );
       },
@@ -129,6 +151,21 @@ class WelcomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF4A00E0),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: "Cài đặt API",
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
@@ -206,6 +243,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int _soNhanVien = 0;
   int _soSanPham = 0;
   int _soHoaDon = 0;
+  double _tongDoanhThuThang = 0;
+  double _tongDoanhThuNam = 0;
 
   @override
   void initState() {
@@ -213,6 +252,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadSoNhanVien();
     _loadSoKhoHang();
     _loadSoHoaDon();
+    _loadDoanhThu();
   }
 
   Future<void> _loadSoNhanVien() async {
@@ -228,6 +268,62 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _loadSoHoaDon() async {
     final ds = await ApiService.layDanhSachHoaDon();
     if (mounted) setState(() => _soHoaDon = ds.length);
+  }
+
+  Future<void> _loadDoanhThu() async {
+    final hoaDonList = await ApiService.layDanhSachHoaDon();
+    final khoHangList = await ApiService.layDanhSachKhoHang();
+    final nhanVienList = await ApiService.layDanhSachNhanVien();
+
+    double tongHoaDon = 0;
+    double tongKho = 0;
+    double tongLuong = 0;
+
+    final now = DateTime.now();
+
+    // ✅ Hóa đơn
+    for (HoaDon hd in hoaDonList) {
+      if (hd.ngayLap != null &&
+          hd.ngayLap!.month == now.month &&
+          hd.ngayLap!.year == now.year) {
+        if (hd.loaiHoaDon?.toLowerCase() == "xuất") {
+          tongHoaDon += hd.tongTien.toDouble();
+        } else if (hd.loaiHoaDon?.toLowerCase() == "nhập") {
+          tongHoaDon -= hd.tongTien.toDouble();
+        }
+      }
+    }
+
+    // ✅ Kho hàng
+    for (KhoHang kho in khoHangList) {
+      if (kho.ngayNhap != null &&
+          kho.ngayNhap!.month == now.month &&
+          kho.ngayNhap!.year == now.year) {
+        if (kho.trangThai == "Đã xuất") {
+          tongKho += kho.giaTri ?? 0;
+        } else if (kho.trangThai == "Hoạt động") {
+          tongKho -= kho.giaTri ?? 0;
+        }
+      }
+    }
+
+    // ✅ Nhân viên
+    for (NhanVien nv in nhanVienList) {
+      for (var wd in nv.workDays) {
+        if (wd.ngay.month == now.month && wd.ngay.year == now.year) {
+          tongLuong += nv.luongTheoGio * wd.soGio;
+        }
+      }
+    }
+
+    // ✅ Tổng doanh thu tháng (giống DoanhThuScreen)
+    final tongThang = tongHoaDon + tongKho - tongLuong;
+
+    if (mounted) {
+      setState(() {
+        _tongDoanhThuThang = tongThang;
+      });
+    }
   }
 
   String getToday() => DateFormat("dd/MM/yyyy").format(DateTime.now());
@@ -247,7 +343,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: chào + logo
+              // Header
               Padding(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -321,6 +417,16 @@ class _HomeScreenState extends State<HomeScreen> {
                           _loadSoKhoHang();
                         },
                       ),
+                      buildCardItem(
+                        icon: Icons.bar_chart,
+                        title: "Doanh Thu",
+                        subtitle:
+                            "Tháng ${DateTime.now().month}: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_tongDoanhThuThang)}\n",
+                        onTap: () async {
+                          await Navigator.pushNamed(context, '/doanh-thu');
+                          _loadDoanhThu();
+                        },
+                      ),
                     ],
                   ),
                 ),
@@ -343,6 +449,9 @@ class _HomeScreenState extends State<HomeScreen> {
             await Navigator.pushNamed(context, '/kho-hang');
           }
           if (index == 3) {
+            await Navigator.pushNamed(context, '/doanh-thu');
+          }
+          if (index == 4) {
             showModalBottomSheet(
               context: context,
               shape: const RoundedRectangleBorder(
@@ -353,7 +462,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         },
         backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF4A00E0), // tím đậm
+        selectedItemColor: const Color(0xFF4A00E0),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         items: const [
@@ -362,6 +471,10 @@ class _HomeScreenState extends State<HomeScreen> {
           BottomNavigationBarItem(
             icon: Icon(Icons.warehouse),
             label: "Kho Hàng",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: "Doanh Thu",
           ),
           BottomNavigationBarItem(
             icon: Icon(Icons.account_circle),
@@ -398,14 +511,8 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             CircleAvatar(
               radius: 28,
-              backgroundColor: const Color(
-                0xFF4A00E0,
-              ).withOpacity(0.1), // nền tím nhạt
-              child: Icon(
-                icon,
-                size: 28,
-                color: const Color(0xFF4A00E0),
-              ), // icon tím đậm
+              backgroundColor: const Color(0xFF4A00E0).withOpacity(0.1),
+              child: Icon(icon, size: 28, color: const Color(0xFF4A00E0)),
             ),
             const SizedBox(width: 16),
             Expanded(

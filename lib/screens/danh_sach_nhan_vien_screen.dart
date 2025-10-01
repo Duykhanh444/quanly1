@@ -332,28 +332,23 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
       ),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
-        onTap: (index) async {
+        onTap: (index) {
           setState(() => _currentIndex = index);
+
           if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const DanhSachNhanVienScreen()),
-            );
+            Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
           }
           if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const HoaDonScreen()),
-            );
+            Navigator.pushReplacementNamed(context, '/hoa-don');
           }
           if (index == 2) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => KhoHangScreen()),
-            );
+            Navigator.pushReplacementNamed(context, '/kho-hang');
           }
           if (index == 3) {
-            // 🔹 Quay về trang chủ (HomeScreen)
+            Navigator.pushReplacementNamed(context, '/doanh-thu');
+          }
+          if (index == 4) {
+            // 👉 về HomeScreen trong QuanLyXuongApp
             Navigator.pushReplacementNamed(context, '/home');
           }
         },
@@ -363,12 +358,19 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
         type: BottomNavigationBarType.fixed,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
-          BottomNavigationBarItem(icon: Icon(Icons.receipt), label: "Hóa Đơn"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: "Hóa Đơn",
+          ),
           BottomNavigationBarItem(
             icon: Icon(Icons.warehouse),
             label: "Kho Hàng",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Trang chủ"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: "Doanh Thu",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         ],
       ),
     );

@@ -17,6 +17,13 @@ class _ThemHoaDonScreenState extends State<ThemHoaDonScreen> {
   String _trangThai = "Chưa thanh toán";
 
   @override
+  void initState() {
+    super.initState();
+    // mặc định lấy ngày hôm đó
+    _ngayLap = DateTime.now();
+  }
+
+  @override
   void dispose() {
     _maHoaDonController.dispose();
     _tongTienController.dispose();
@@ -27,7 +34,7 @@ class _ThemHoaDonScreenState extends State<ThemHoaDonScreen> {
     final now = DateTime.now();
     final picked = await showDatePicker(
       context: context,
-      initialDate: now,
+      initialDate: _ngayLap ?? now,
       firstDate: DateTime(now.year - 5),
       lastDate: DateTime(now.year + 5),
     );
@@ -37,18 +44,21 @@ class _ThemHoaDonScreenState extends State<ThemHoaDonScreen> {
   }
 
   Future<void> _themHoaDon() async {
-    if (!_formKey.currentState!.validate() || _ngayLap == null) {
+    if (!_formKey.currentState!.validate()) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Vui lòng điền đầy đủ thông tin")),
       );
       return;
     }
 
+    // nếu chưa chọn ngày => lấy ngày hiện tại
+    final ngayHoaDon = _ngayLap ?? DateTime.now();
+
     final hoaDonMoi = HoaDon(
       id: 0, // nếu API tự sinh id thì để 0
       maHoaDon: _maHoaDonController.text.trim(),
       tongTien: int.tryParse(_tongTienController.text.trim()) ?? 0,
-      ngayLap: _ngayLap,
+      ngayLap: ngayHoaDon,
       trangThai: _trangThai,
       items: const [], // mặc định rỗng
     );

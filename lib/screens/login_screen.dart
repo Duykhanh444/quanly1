@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+// Firebase Auth Mock
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
+
 import '../services/api_service.dart';
 import 'register_screen.dart';
 
@@ -13,15 +18,21 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
   bool _isLoading = false;
   bool _rememberMe = false;
+  bool _obscurePassword = true;
+
+  late MockFirebaseAuth _mockAuth;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _mockAuth = MockFirebaseAuth(); // tạo auth giả
   }
 
+  /// Load thông tin đăng nhập từ SharedPreferences
   Future<void> _loadUserInfo() async {
     final prefs = await SharedPreferences.getInstance();
     final savedUsername = prefs.getString("username") ?? "";
@@ -37,6 +48,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Lưu thông tin đăng nhập nếu người dùng chọn "Remember me"
   Future<void> _saveUserInfo(String username, String password) async {
     final prefs = await SharedPreferences.getInstance();
     if (_rememberMe) {
@@ -50,12 +62,14 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Lưu user đã đăng nhập
   Future<void> _saveLoggedInUser(String username, String email) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString("userName", username);
     await prefs.setString("userEmail", email);
   }
 
+  /// Đăng nhập bằng API
   void _dangNhap() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
@@ -91,6 +105,39 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// Đăng nhập bằng Google (mock)
+  Future<void> _loginWithGoogleMock() async {
+    try {
+      final mockUser = MockUser(
+        isAnonymous: false,
+        uid: "mock_uid_123",
+        email: "mockuser@gmail.com",
+        displayName: "Mock User",
+      );
+
+      final auth = MockFirebaseAuth(mockUser: mockUser);
+      final result = await auth.signInWithCredential(
+        GoogleAuthProvider.credential(
+          idToken: "fake-id-token",
+          accessToken: "fake-access-token",
+        ),
+      );
+
+      final user = result.user;
+      if (user != null) {
+        await _saveLoggedInUser(user.displayName ?? "", user.email ?? "");
+        if (mounted) {
+          Navigator.pushReplacementNamed(context, '/home');
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("❌ Google login lỗi (mock): $e")));
+    }
+  }
+
+  /// Nút Gradient đẹp
   Widget _buildGradientButton(String text, VoidCallback onTap) {
     return InkWell(
       onTap: _isLoading ? null : onTap,
@@ -117,6 +164,7 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  /// Ô nhập liệu custom
   Widget _buildTextField({
     required String label,
     required IconData icon,
@@ -125,13 +173,24 @@ class _LoginScreenState extends State<LoginScreen> {
   }) {
     return TextField(
       controller: controller,
-      obscureText: isPassword,
+      obscureText: isPassword ? _obscurePassword : false,
       decoration: InputDecoration(
         filled: true,
         fillColor: Colors.white,
         labelText: label,
         prefixIcon: Icon(icon, color: Colors.deepPurple),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.deepPurple,
+                ),
+                onPressed: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
+                },
+              )
+            : null,
       ),
     );
   }
@@ -152,7 +211,6 @@ class _LoginScreenState extends State<LoginScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
             child: Column(
               children: [
-                // Logo
                 const SizedBox(height: 16),
                 const Text(
                   "Welcome !",
@@ -164,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 const SizedBox(height: 24),
 
-                // Form container
+                // Form Login
                 Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
@@ -174,8 +232,8 @@ class _LoginScreenState extends State<LoginScreen> {
                   child: Column(
                     children: [
                       _buildTextField(
-                        label: "Họ Tên",
-                        icon: Icons.email,
+                        label: "Tài khoản",
+                        icon: Icons.person,
                         controller: _usernameController,
                       ),
                       const SizedBox(height: 16),
@@ -200,6 +258,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 12),
                       _buildGradientButton("Login", _dangNhap),
                       const SizedBox(height: 16),
+
+                      // Đăng ký
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
@@ -223,30 +283,39 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         ],
                       ),
+
                       const SizedBox(height: 16),
                       const Divider(),
                       const Text("OR"),
                       const SizedBox(height: 16),
+
+                      // Social login
                       Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
+                          IconButton(
+                            onPressed: _loginWithGoogleMock,
+                            icon: const Icon(
+                              Icons.g_mobiledata,
+                              color: Colors.red,
+                              size: 40,
+                            ),
+                          ),
                           IconButton(
                             onPressed: () {},
                             icon: const Icon(
                               Icons.facebook,
                               color: Colors.blue,
+                              size: 40,
                             ),
                           ),
                           IconButton(
                             onPressed: () {},
                             icon: const Icon(
-                              Icons.g_mobiledata,
-                              color: Colors.red,
+                              Icons.apple,
+                              color: Colors.black,
+                              size: 40,
                             ),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(Icons.apple, color: Colors.black),
                           ),
                         ],
                       ),

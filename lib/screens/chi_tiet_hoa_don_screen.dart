@@ -283,6 +283,19 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     if (_daThanhToan) await ApiService.themHoacSuaHoaDon(hd);
   }
 
+  // -------------------- Chọn ngày lập --------------------
+  Future<void> _chonNgayLap() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: hd.ngayLap ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() => hd.ngayLap = picked);
+    }
+  }
+
   // -------------------- UI --------------------
   @override
   Widget build(BuildContext context) {
@@ -303,10 +316,11 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildInfoCard("Mã hóa đơn", hd.maHoaDon),
-            _buildInfoCard(
+            _buildDateCard(
               "Ngày lập",
-              DateFormat('dd-MM-yyyy').format(hd.ngayLap!),
-            ),
+              hd.ngayLap!,
+              _chonNgayLap,
+            ), // ✅ thêm chỗ này
             _buildDropdownCard(
               "Loại hóa đơn",
               hd.loaiHoaDon,
@@ -362,7 +376,7 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
             _buildStatusCard(
               "Tổng tiền",
               "${formatNumber(hd.tongTien)} VND",
-              Colors.teal, // ✅ đổi màu xanh lá dễ nhìn hơn
+              Colors.teal,
             ),
 
             if (!_daThanhToan) ...[
@@ -414,6 +428,36 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
       ],
     ),
   );
+
+  Widget _buildDateCard(String label, DateTime date, VoidCallback onTap) =>
+      Container(
+        margin: const EdgeInsets.only(bottom: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 3)],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+            InkWell(
+              onTap: _daThanhToan ? null : onTap,
+              child: Row(
+                children: [
+                  Text(
+                    DateFormat('dd-MM-yyyy').format(date),
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  if (!_daThanhToan)
+                    const Icon(Icons.edit_calendar, color: Colors.blue),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
 
   Widget _buildStatusCard(String label, String value, Color color) => Container(
     margin: const EdgeInsets.only(bottom: 8),

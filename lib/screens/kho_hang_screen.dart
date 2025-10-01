@@ -109,6 +109,13 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     return DateFormat("dd/MM/yyyy").format(date);
   }
 
+  // ✅ format tiền VND
+  String _formatCurrency(num? value) {
+    if (value == null) return "0 đ";
+    final formatter = NumberFormat("#,###", "vi_VN");
+    return "${formatter.format(value)} đ";
+  }
+
   @override
   Widget build(BuildContext context) {
     final today = DateFormat("dd/MM/yyyy").format(DateTime.now());
@@ -161,11 +168,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                     // Logo app
                     Row(
                       children: const [
-                        Icon(
-                          Icons.warehouse,
-                          color: Colors.white,
-                          size: 28,
-                        ), // ✅ icon kho
+                        Icon(Icons.warehouse, color: Colors.white, size: 28),
                         SizedBox(width: 6),
                         Text(
                           "VIETFLOW",
@@ -220,7 +223,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Lịch sử"),
+                      Text("Đã Xuất Kho"),
                       const SizedBox(width: 4),
                       IconButton(
                         padding: EdgeInsets.zero,
@@ -264,27 +267,25 @@ class _KhoHangScreenState extends State<KhoHangScreen>
         },
       ),
 
-      // ✅ BottomNavigationBar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
+
           if (index == 0) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const DanhSachNhanVienScreen()),
-            );
+            Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
           }
           if (index == 1) {
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(builder: (_) => const HoaDonScreen()),
-            );
+            Navigator.pushReplacementNamed(context, '/hoa-don');
           }
           if (index == 2) {
-            // Đang ở Kho Hàng
+            Navigator.pushReplacementNamed(context, '/kho-hang');
           }
           if (index == 3) {
+            Navigator.pushReplacementNamed(context, '/doanh-thu');
+          }
+          if (index == 4) {
+            // 👉 về HomeScreen trong QuanLyXuongApp
             Navigator.pushReplacementNamed(context, '/home');
           }
         },
@@ -302,7 +303,11 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             icon: Icon(Icons.warehouse),
             label: "Kho Hàng",
           ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Trang chủ"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: "Doanh Thu",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         ],
       ),
     );
@@ -366,6 +371,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Tên kho
                           Text(
                             kho.tenKho ?? "",
                             style: TextStyle(
@@ -373,12 +379,31 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                               fontWeight: FontWeight.bold,
                             ),
                           ),
+
+                          // ✅ Ghi chú
+                          if (kho.ghiChu != null && kho.ghiChu!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                kho.ghiChu!,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+
                           SizedBox(height: 4),
+
+                          // Ngày nhập - xuất
                           Text(
                             "Ngày nhập: ${_formatDate(start)}"
                             "${kho.ngayXuat != null ? " | Ngày xuất: ${_formatDate(end)}" : ""}",
                             style: TextStyle(color: Colors.grey[700]),
                           ),
+
+                          // Số ngày tồn kho
                           if (soNgay > 0)
                             Container(
                               margin: const EdgeInsets.only(top: 6),
@@ -391,10 +416,23 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                "$soNgay ngày tồn kho",
+                                "$soNgay ngày trong kho",
                                 style: TextStyle(
                                   color: Colors.blue[800],
                                   fontSize: 12,
+                                ),
+                              ),
+                            ),
+
+                          // Giá trị
+                          if (kho.giaTri != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                "Giá trị: ${_formatCurrency(kho.giaTri)}",
+                                style: TextStyle(
+                                  color: Colors.deepPurple,
+                                  fontWeight: FontWeight.w500,
                                 ),
                               ),
                             ),

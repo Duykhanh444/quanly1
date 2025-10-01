@@ -11,6 +11,13 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+
+  # Firebase core + auth + google sign in
+  firebase_core: ^3.6.0
+  firebase_auth: ^5.1.4
+  google_sign_in: ^6.2.1
+
+  # Các package khác
   share_plus: ^10.0.2
   path_provider: ^2.1.5
   http: ^0.13.6
@@ -23,7 +30,6 @@ dependencies:
   mobile_scanner: ^3.0.0
   qr_flutter: ^4.0.0   # hiện QR code
   cached_network_image: ^3.2.3
-
   pdf: ^3.10.7
   printing: ^5.12.0
   convert: ^3.1.1   # ✅ để trong dependencies
@@ -32,6 +38,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  firebase_auth_mocks: ^0.14.2   # ✅ test Firebase Auth fake
+  google_sign_in_mocks: ^0.3.0   # ✅ test Google Sign-In fake
 
 flutter:
   uses-material-design: true

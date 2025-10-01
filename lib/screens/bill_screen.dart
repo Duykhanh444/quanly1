@@ -201,6 +201,7 @@ class _BillScreenState extends State<BillScreen> {
               TextField(
                 controller: _shopPhoneController,
                 decoration: const InputDecoration(labelText: "Số điện thoại"),
+                keyboardType: TextInputType.phone,
               ),
             ],
           ),
@@ -223,44 +224,93 @@ class _BillScreenState extends State<BillScreen> {
     );
   }
 
-  // ✅ Dialog sửa QR Info
+  // ✅ Dialog sửa QR Info (đã thêm chọn ngân hàng)
   void _editQRInfo() {
+    // Khởi tạo temporary values để chỉnh trong dialog
+    String? tempBank = _bankName;
+    final tempAccountController = TextEditingController(
+      text: _accountController.text,
+    );
+    final tempAccountNameController = TextEditingController(
+      text: _accountNameController.text,
+    );
+    final tempAmountController = TextEditingController(
+      text: _amountController.text,
+    );
+
     showDialog(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text("Sửa thông tin chuyển khoản"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _accountNameController,
-                decoration: const InputDecoration(labelText: "Tên tài khoản"),
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              title: const Text("Sửa thông tin chuyển khoản"),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Dropdown chọn ngân hàng
+                    DropdownButtonFormField<String>(
+                      value: tempBank,
+                      decoration: const InputDecoration(labelText: "Ngân hàng"),
+                      items: BillConfig.bankNameToBin.keys.map((bank) {
+                        // giữ hiển thị theo key gốc nhưng value là uppercase
+                        return DropdownMenuItem(
+                          value: bank.toUpperCase(),
+                          child: Text(bank),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setStateDialog(() {
+                          tempBank = value;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 10),
+                    TextField(
+                      controller: tempAccountNameController,
+                      decoration: const InputDecoration(
+                        labelText: "Tên tài khoản",
+                      ),
+                    ),
+                    TextField(
+                      controller: tempAccountController,
+                      decoration: const InputDecoration(
+                        labelText: "Số tài khoản",
+                      ),
+                      keyboardType: TextInputType.number,
+                    ),
+                    TextField(
+                      controller: tempAmountController,
+                      decoration: const InputDecoration(labelText: "Số tiền"),
+                      keyboardType: TextInputType.number,
+                    ),
+                  ],
+                ),
               ),
-              TextField(
-                controller: _accountController,
-                decoration: const InputDecoration(labelText: "Số tài khoản"),
-              ),
-              TextField(
-                controller: _amountController,
-                decoration: const InputDecoration(labelText: "Số tiền"),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Hủy"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await _saveDefaults();
-                setState(() {});
-                Navigator.pop(ctx);
-              },
-              child: const Text("Lưu"),
-            ),
-          ],
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text("Hủy"),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    // Ghi lại giá trị vào controller chính và lưu defaults
+                    _bankName = tempBank ?? _bankName;
+                    _accountController.text = tempAccountController.text;
+                    _accountNameController.text =
+                        tempAccountNameController.text;
+                    _amountController.text = tempAmountController.text;
+
+                    await _saveDefaults();
+                    setState(() {}); // cập nhật giao diện chính
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text("Lưu"),
+                ),
+              ],
+            );
+          },
         );
       },
     );
