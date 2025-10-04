@@ -1,10 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-
-// Firebase Auth Mock
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
-
 import '../services/api_service.dart';
 import 'register_screen.dart';
 
@@ -23,21 +18,18 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _rememberMe = false;
   bool _obscurePassword = true;
 
-  late MockFirebaseAuth _mockAuth;
-
   @override
   void initState() {
     super.initState();
-    _loadUserInfo();
-    _mockAuth = MockFirebaseAuth(); // tạo auth giả
+    _loadSavedLoginInfo();
   }
 
-  /// Load thông tin đăng nhập từ SharedPreferences
-  Future<void> _loadUserInfo() async {
+  /// ✅ Load thông tin nhớ đăng nhập, nhưng KHÔNG tự đăng nhập
+  Future<void> _loadSavedLoginInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedUsername = prefs.getString("username") ?? "";
-    final savedPassword = prefs.getString("password") ?? "";
-    final remember = prefs.getBool("rememberMe") ?? false;
+    final savedUsername = prefs.getString('username') ?? '';
+    final savedPassword = prefs.getString('password') ?? '';
+    final remember = prefs.getBool('rememberMe') ?? false;
 
     if (remember) {
       setState(() {
@@ -48,29 +40,22 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// Lưu thông tin đăng nhập nếu người dùng chọn "Remember me"
-  Future<void> _saveUserInfo(String username, String password) async {
+  /// ✅ Lưu hoặc xóa thông tin đăng nhập
+  Future<void> _saveLoginInfo(String username, String password) async {
     final prefs = await SharedPreferences.getInstance();
     if (_rememberMe) {
-      await prefs.setString("username", username);
-      await prefs.setString("password", password);
-      await prefs.setBool("rememberMe", true);
+      await prefs.setString('username', username);
+      await prefs.setString('password', password);
+      await prefs.setBool('rememberMe', true);
     } else {
-      await prefs.remove("username");
-      await prefs.remove("password");
-      await prefs.setBool("rememberMe", false);
+      await prefs.remove('username');
+      await prefs.remove('password');
+      await prefs.setBool('rememberMe', false);
     }
   }
 
-  /// Lưu user đã đăng nhập
-  Future<void> _saveLoggedInUser(String username, String email) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("userName", username);
-    await prefs.setString("userEmail", email);
-  }
-
-  /// Đăng nhập bằng API
-  void _dangNhap() async {
+  /// ✅ Hàm đăng nhập
+  Future<void> _dangNhap() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
 
@@ -91,53 +76,51 @@ class _LoginScreenState extends State<LoginScreen> {
     setState(() => _isLoading = false);
 
     if (success) {
-      await _saveUserInfo(username, password);
-      await _saveLoggedInUser(username, "$username@gmail.com");
+      await _saveLoginInfo(username, password);
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } else {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("❌ Đăng nhập thất bại")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Sai tài khoản hoặc mật khẩu")),
+        );
       }
     }
   }
 
-  /// Đăng nhập bằng Google (mock)
-  Future<void> _loginWithGoogleMock() async {
-    try {
-      final mockUser = MockUser(
-        isAnonymous: false,
-        uid: "mock_uid_123",
-        email: "mockuser@gmail.com",
-        displayName: "Mock User",
-      );
-
-      final auth = MockFirebaseAuth(mockUser: mockUser);
-      final result = await auth.signInWithCredential(
-        GoogleAuthProvider.credential(
-          idToken: "fake-id-token",
-          accessToken: "fake-access-token",
-        ),
-      );
-
-      final user = result.user;
-      if (user != null) {
-        await _saveLoggedInUser(user.displayName ?? "", user.email ?? "");
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/home');
-        }
-      }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text("❌ Google login lỗi (mock): $e")));
-    }
+  /// Ô nhập liệu có icon + ẩn hiện mật khẩu
+  Widget _buildTextField({
+    required String label,
+    required IconData icon,
+    required TextEditingController controller,
+    bool isPassword = false,
+  }) {
+    return TextField(
+      controller: controller,
+      obscureText: isPassword ? _obscurePassword : false,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: Colors.deepPurple),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
+        suffixIcon: isPassword
+            ? IconButton(
+                icon: Icon(
+                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.deepPurple,
+                ),
+                onPressed: () {
+                  setState(() => _obscurePassword = !_obscurePassword);
+                },
+              )
+            : null,
+      ),
+    );
   }
 
-  /// Nút Gradient đẹp
+  /// Nút Gradient
   Widget _buildGradientButton(String text, VoidCallback onTap) {
     return InkWell(
       onTap: _isLoading ? null : onTap,
@@ -164,168 +147,110 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  /// Ô nhập liệu custom
-  Widget _buildTextField({
-    required String label,
-    required IconData icon,
-    required TextEditingController controller,
-    bool isPassword = false,
-  }) {
-    return TextField(
-      controller: controller,
-      obscureText: isPassword ? _obscurePassword : false,
-      decoration: InputDecoration(
-        filled: true,
-        fillColor: Colors.white,
-        labelText: label,
-        prefixIcon: Icon(icon, color: Colors.deepPurple),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(30)),
-        suffixIcon: isPassword
-            ? IconButton(
-                icon: Icon(
-                  _obscurePassword ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.deepPurple,
-                ),
-                onPressed: () {
-                  setState(() => _obscurePassword = !_obscurePassword);
-                },
-              )
-            : null,
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                const Text(
-                  "Welcome !",
-                  style: TextStyle(
-                    fontSize: 26,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
+      body: Stack(
+        children: [
+          // Nền gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 40,
                 ),
-                const SizedBox(height: 24),
-
-                // Form Login
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildTextField(
-                        label: "Tài khoản",
-                        icon: Icons.person,
-                        controller: _usernameController,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    const Text(
+                      "Welcome!",
+                      style: TextStyle(
+                        fontSize: 28,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        label: "Mật khẩu",
-                        icon: Icons.lock,
-                        controller: _passwordController,
-                        isPassword: true,
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Checkbox(
-                            value: _rememberMe,
-                            onChanged: (value) {
-                              setState(() => _rememberMe = value ?? false);
-                            },
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
                           ),
-                          const Text("Remember me"),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      _buildGradientButton("Login", _dangNhap),
-                      const SizedBox(height: 16),
-
-                      // Đăng ký
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Column(
                         children: [
-                          const Text("New user? "),
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                            child: const Text(
-                              "Sign Up",
-                              style: TextStyle(
-                                color: Colors.deepPurple,
-                                fontWeight: FontWeight.bold,
+                          _buildTextField(
+                            label: "Tài khoản",
+                            icon: Icons.person,
+                            controller: _usernameController,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            label: "Mật khẩu",
+                            icon: Icons.lock,
+                            controller: _passwordController,
+                            isPassword: true,
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Checkbox(
+                                value: _rememberMe,
+                                onChanged: (value) {
+                                  setState(() => _rememberMe = value ?? false);
+                                },
                               ),
-                            ),
+                              const Text("Ghi nhớ đăng nhập"),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          _buildGradientButton("Login", _dangNhap),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("Chưa có tài khoản? "),
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.pushReplacementNamed(
+                                    context,
+                                    '/register',
+                                  );
+                                },
+                                child: const Text(
+                                  "Đăng ký",
+                                  style: TextStyle(
+                                    color: Colors.deepPurple,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-
-                      const SizedBox(height: 16),
-                      const Divider(),
-                      const Text("OR"),
-                      const SizedBox(height: 16),
-
-                      // Social login
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          IconButton(
-                            onPressed: _loginWithGoogleMock,
-                            icon: const Icon(
-                              Icons.g_mobiledata,
-                              color: Colors.red,
-                              size: 40,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(
-                              Icons.facebook,
-                              color: Colors.blue,
-                              size: 40,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () {},
-                            icon: const Icon(
-                              Icons.apple,
-                              color: Colors.black,
-                              size: 40,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

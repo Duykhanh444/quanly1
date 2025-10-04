@@ -1,27 +1,35 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:intl/intl.dart';
 import '../services/api_service.dart';
 import '../models/nhanvien.dart';
 import '../models/khohang.dart';
 import '../models/hoadon.dart';
+import 'chi_tiet_doanh_thu_screen.dart';
 
+// ===== MODEL DOANH THU THÁNG =====
 class DoanhThuThang {
   final DateTime thang;
-  final double hoaDon;
-  final double khoHang;
+  final double hoaDonNhap;
+  final double hoaDonXuat;
+  final double khoNhap;
+  final double khoXuat;
   final double nhanVien;
 
   DoanhThuThang({
     required this.thang,
-    required this.hoaDon,
-    required this.khoHang,
-    required this.nhanVien,
+    this.hoaDonNhap = 0,
+    this.hoaDonXuat = 0,
+    this.khoNhap = 0,
+    this.khoXuat = 0,
+    this.nhanVien = 0,
   });
 
-  double get tongTien => hoaDon + khoHang - nhanVien;
+  double get tongTien =>
+      (hoaDonXuat + khoXuat) - (hoaDonNhap + khoNhap + nhanVien);
 }
 
+// ===== MÀN HÌNH DOANH THU =====
 class DoanhThuScreen extends StatefulWidget {
   const DoanhThuScreen({super.key});
 
@@ -31,8 +39,9 @@ class DoanhThuScreen extends StatefulWidget {
 
 class _DoanhThuScreenState extends State<DoanhThuScreen> {
   List<DoanhThuThang> _dsDoanhThu = [];
-  double _tongDoanhThu = 0;
+  double _tongDoanhThuNam = 0;
   DateTime _selectedMonth = DateTime.now();
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -48,11 +57,12 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
     List<DoanhThuThang> temp = [];
     DateTime now = DateTime.now();
 
-    // ✅ lấy 7 tháng (trước 3 tháng, hiện tại, sau 3 tháng)
-    for (int i = -3; i <= 3; i++) {
-      DateTime thang = DateTime(now.year, now.month + i, 1);
-      double tongHoaDon = 0;
-      double tongKho = 0;
+    for (int i = 1; i <= 12; i++) {
+      DateTime thang = DateTime(now.year, i, 1);
+      double hoaDonNhap = 0;
+      double hoaDonXuat = 0;
+      double khoNhap = 0;
+      double khoXuat = 0;
       double tongLuong = 0;
 
       // Hóa đơn
@@ -61,9 +71,9 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
             hd.ngayLap!.month == thang.month &&
             hd.ngayLap!.year == thang.year) {
           if (hd.loaiHoaDon?.toLowerCase() == "xuất") {
-            tongHoaDon += hd.tongTien.toDouble();
+            hoaDonXuat += hd.tongTien.toDouble();
           } else if (hd.loaiHoaDon?.toLowerCase() == "nhập") {
-            tongHoaDon -= hd.tongTien.toDouble();
+            hoaDonNhap += hd.tongTien.toDouble();
           }
         }
       }
@@ -74,14 +84,14 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
             kho.ngayNhap!.month == thang.month &&
             kho.ngayNhap!.year == thang.year) {
           if (kho.trangThai == "Đã xuất") {
-            tongKho += kho.giaTri ?? 0;
+            khoXuat += kho.giaTri ?? 0;
           } else if (kho.trangThai == "Hoạt động") {
-            tongKho -= kho.giaTri ?? 0;
+            khoNhap += kho.giaTri ?? 0;
           }
         }
       }
 
-      // Nhân viên (tính lương)
+      // Nhân viên
       for (NhanVien nv in nhanVienList) {
         for (var wd in nv.workDays) {
           if (wd.ngay.month == thang.month && wd.ngay.year == thang.year) {
@@ -93,8 +103,10 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
       temp.add(
         DoanhThuThang(
           thang: thang,
-          hoaDon: tongHoaDon,
-          khoHang: tongKho,
+          hoaDonNhap: hoaDonNhap,
+          hoaDonXuat: hoaDonXuat,
+          khoNhap: khoNhap,
+          khoXuat: khoXuat,
           nhanVien: tongLuong,
         ),
       );
@@ -103,18 +115,8 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
     if (mounted) {
       setState(() {
         _dsDoanhThu = temp;
-        final thangChon = _dsDoanhThu.firstWhere(
-          (d) =>
-              d.thang.month == _selectedMonth.month &&
-              d.thang.year == _selectedMonth.year,
-          orElse: () => DoanhThuThang(
-            thang: _selectedMonth,
-            hoaDon: 0,
-            khoHang: 0,
-            nhanVien: 0,
-          ),
-        );
-        _tongDoanhThu = thangChon.tongTien;
+        _tongDoanhThuNam = _dsDoanhThu.fold(0, (sum, d) => sum + d.tongTien);
+        _isLoading = false;
       });
     }
   }
@@ -122,241 +124,241 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
   @override
   Widget build(BuildContext context) {
     final formatter = NumberFormat.currency(locale: 'vi_VN', symbol: '₫');
-
-    final thangChon = _dsDoanhThu.firstWhere(
+    final selected = _dsDoanhThu.firstWhere(
       (d) =>
           d.thang.month == _selectedMonth.month &&
           d.thang.year == _selectedMonth.year,
-      orElse: () => DoanhThuThang(
-        thang: _selectedMonth,
-        hoaDon: 0,
-        khoHang: 0,
-        nhanVien: 0,
-      ),
+      orElse: () => DoanhThuThang(thang: _selectedMonth),
     );
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Báo cáo doanh thu"),
-        backgroundColor: const Color(0xFF4A00E0),
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          children: [
-            Text(
-              "Tổng doanh thu tháng ${_selectedMonth.month}/${_selectedMonth.year}: ${formatter.format(thangChon.tongTien)}",
-              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+        title: const Text(
+          "Báo cáo doanh thu",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+        ),
+        centerTitle: true, // 👈 để chữ nằm chính giữa
+        backgroundColor: Colors.deepPurple,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Image.asset(
+              "assets/icon/app_icon.png",
+              width: 95, // 👈 chỉnh size logo
+              height: 95,
+              fit: BoxFit.contain,
             ),
-            const SizedBox(height: 20),
+          ),
+        ],
+      ),
 
-            // ✅ Biểu đồ
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 30),
-                child: BarChart(
-                  BarChartData(
-                    barTouchData: BarTouchData(
-                      enabled: true,
-                      touchTooltipData: BarTouchTooltipData(
-                        getTooltipItem: (group, groupIndex, rod, rodIndex) =>
-                            null, // ❌ tắt tooltip
-                      ),
-                      touchCallback: (event, response) {
-                        if (response != null &&
-                            response.spot != null &&
-                            event.isInterestedForInteractions) {
-                          final touchedX = response.spot!.touchedBarGroup.x;
-                          final month = _dsDoanhThu.firstWhere(
-                            (d) => d.thang.month == touchedX,
-                            orElse: () => DoanhThuThang(
-                              thang: _selectedMonth,
-                              hoaDon: 0,
-                              khoHang: 0,
-                              nhanVien: 0,
-                            ),
-                          );
-                          setState(() {
-                            _selectedMonth = month.thang;
-                            _tongDoanhThu = month.tongTien;
-                          });
-                        }
-                      },
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                children: [
+                  // ==== CARD TỔNG DOANH THU NĂM ====
+                  Card(
+                    elevation: 6,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    alignment: BarChartAlignment.spaceAround,
-                    maxY: _dsDoanhThu.isNotEmpty
-                        ? _dsDoanhThu
-                                  .map((e) => e.hoaDon + e.khoHang + e.nhanVien)
-                                  .reduce((a, b) => a > b ? a : b) *
-                              1.1
-                        : 100,
-                    minY: 0,
-                    barGroups: _dsDoanhThu.map((dt) {
-                      final tong = dt.hoaDon + dt.khoHang + dt.nhanVien;
-                      final isSelected = dt.thang.month == _selectedMonth.month;
-                      return BarChartGroupData(
-                        x: dt.thang.month,
-                        barRods: [
-                          BarChartRodData(
-                            toY: tong,
-                            width: isSelected ? 30 : 24,
-                            borderRadius: const BorderRadius.all(
-                              Radius.circular(6),
+                    color: Colors.deepPurple.shade50,
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Icon(
+                            Icons.attach_money,
+                            size: 40,
+                            color: Colors.deepPurple,
+                          ),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Tổng doanh thu năm",
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  formatter.format(_tongDoanhThuNam),
+                                  style: const TextStyle(
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.redAccent,
+                                  ),
+                                ),
+                              ],
                             ),
-                            rodStackItems: [
-                              BarChartRodStackItem(0, dt.hoaDon, Colors.orange),
-                              BarChartRodStackItem(
-                                dt.hoaDon,
-                                dt.hoaDon + dt.khoHang,
-                                Colors.grey,
-                              ),
-                              BarChartRodStackItem(
-                                dt.hoaDon + dt.khoHang,
-                                tong,
-                                Colors.blue,
-                              ),
-                            ],
-                            borderSide: isSelected
-                                ? const BorderSide(
-                                    color: Colors.red,
-                                    width: 2,
-                                  ) // viền đỏ
-                                : BorderSide.none,
                           ),
                         ],
-                      );
-                    }).toList(),
-                    titlesData: FlTitlesData(
-                      bottomTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 36,
-                          getTitlesWidget: (value, meta) {
-                            final isSelected =
-                                value.toInt() == _selectedMonth.month;
-                            return GestureDetector(
-                              onTap: () {
-                                final month = _dsDoanhThu.firstWhere(
-                                  (d) => d.thang.month == value.toInt(),
-                                  orElse: () => DoanhThuThang(
-                                    thang: _selectedMonth,
-                                    hoaDon: 0,
-                                    khoHang: 0,
-                                    nhanVien: 0,
-                                  ),
-                                );
-                                setState(() {
-                                  _selectedMonth = month.thang;
-                                  _tongDoanhThu = month.tongTien;
-                                });
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.all(6),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isSelected
-                                      ? Colors.purple.withOpacity(0.3)
-                                      : Colors.transparent,
-                                ),
-                                child: Text(
-                                  "T${value.toInt()}",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: isSelected
-                                        ? Colors.purple
-                                        : Colors.black,
-                                  ),
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      leftTitles: AxisTitles(
-                        sideTitles: SideTitles(
-                          showTitles: true,
-                          reservedSize: 50,
-                          getTitlesWidget: (value, meta) {
-                            return Text(
-                              NumberFormat.compactCurrency(
-                                locale: "vi_VN",
-                                symbol: "₫",
-                                decimalDigits: 0,
-                              ).format(value),
-                              style: const TextStyle(fontSize: 11),
-                            );
-                          },
-                        ),
-                      ),
-                      rightTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
-                      ),
-                      topTitles: AxisTitles(
-                        sideTitles: SideTitles(showTitles: false),
                       ),
                     ),
-                    gridData: FlGridData(show: true),
-                    borderData: FlBorderData(show: false),
                   ),
-                ),
+
+                  const SizedBox(height: 20),
+
+                  Expanded(
+                    flex: 2,
+                    child: BarChart(
+                      BarChartData(
+                        alignment: BarChartAlignment.spaceAround,
+                        maxY:
+                            _dsDoanhThu
+                                .map((e) => e.tongTien < 0 ? 0 : e.tongTien)
+                                .reduce((a, b) => a > b ? a : b) *
+                            1.2,
+                        minY: 0,
+                        barGroups: _dsDoanhThu.map((dt) {
+                          bool selected =
+                              dt.thang.month == _selectedMonth.month;
+                          return BarChartGroupData(
+                            x: dt.thang.month,
+                            barRods: [
+                              BarChartRodData(
+                                toY: dt.tongTien < 0 ? 0 : dt.tongTien,
+                                gradient: LinearGradient(
+                                  colors: selected
+                                      ? [Colors.deepPurple, Colors.purpleAccent]
+                                      : [Colors.grey, Colors.grey.shade400],
+                                ),
+                                width: selected ? 30 : 22,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            ],
+                          );
+                        }).toList(),
+                        titlesData: FlTitlesData(
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 28,
+                              getTitlesWidget: (value, _) => Text(
+                                "T${value.toInt()}",
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                          ),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 60,
+                              getTitlesWidget: (value, _) => Text(
+                                NumberFormat.compactCurrency(
+                                  locale: 'vi_VN',
+                                  symbol: 'VND',
+                                  decimalDigits: 0,
+                                ).format(value),
+                                style: const TextStyle(fontSize: 10),
+                              ),
+                            ),
+                          ),
+                          topTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                          rightTitles: AxisTitles(
+                            sideTitles: SideTitles(showTitles: false),
+                          ),
+                        ),
+                        gridData: FlGridData(show: true),
+                        borderData: FlBorderData(show: false),
+
+                        // ✅ Khi bấm vào cột → đổi _selectedMonth
+                        barTouchData: BarTouchData(
+                          enabled: true,
+                          touchTooltipData: BarTouchTooltipData(
+                            getTooltipItem:
+                                (group, groupIndex, rod, rodIndex) => null,
+                          ),
+                          touchCallback: (event, response) {
+                            if (response != null &&
+                                response.spot != null &&
+                                event is FlTapUpEvent) {
+                              final touchedMonth =
+                                  response.spot!.touchedBarGroup.x;
+                              setState(() {
+                                _selectedMonth = DateTime(
+                                  _selectedMonth.year,
+                                  touchedMonth,
+                                );
+                              });
+                            }
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // ==== DANH SÁCH DOANH THU TỪNG THÁNG ====
+                  Expanded(
+                    flex: 3,
+                    child: ListView.builder(
+                      itemCount: _dsDoanhThu.length,
+                      itemBuilder: (context, index) {
+                        final dt = _dsDoanhThu[index];
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: ListTile(
+                            leading: CircleAvatar(
+                              backgroundColor: Colors.deepPurple.shade100,
+                              child: Text(dt.thang.month.toString()),
+                            ),
+                            title: Text(
+                              "Tháng ${dt.thang.month}/${dt.thang.year}",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            subtitle: Text(
+                              "Doanh thu: ${formatter.format(dt.tongTien)}",
+                            ),
+                            onTap: () {
+                              setState(() => _selectedMonth = dt.thang);
+                            },
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
+
+                  // ==== NÚT XEM CHI TIẾT ====
+                  ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              ChiTietDoanhThuScreen(dsDoanhThu: _dsDoanhThu),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.table_chart),
+                    label: const Text("Xem chi tiết báo cáo"),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
-
-            const SizedBox(height: 12),
-
-            // ✅ Legend bên dưới
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              elevation: 3,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildLegend(
-                      "Hóa đơn",
-                      Colors.orange,
-                      formatter.format(thangChon.hoaDon),
-                    ),
-                    _buildLegend(
-                      "Kho hàng",
-                      Colors.grey,
-                      formatter.format(thangChon.khoHang),
-                    ),
-                    _buildLegend(
-                      "Nhân viên",
-                      Colors.blue,
-                      formatter.format(thangChon.nhanVien),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLegend(String title, Color color, String value) {
-    return Column(
-      children: [
-        Row(
-          children: [
-            Icon(Icons.square, color: color, size: 12),
-            const SizedBox(width: 4),
-            Text(title, style: const TextStyle(fontSize: 12)),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-      ],
     );
   }
 }

@@ -256,24 +256,14 @@ class _HoaDonScreenState extends State<HoaDonScreen>
                         ),
                       ],
                     ),
-                    Row(
-                      children: const [
-                        Icon(
-                          Icons.warehouse,
-                          color: Colors.white,
-                          size: 28,
-                        ), // ✅ icon kho
-                        SizedBox(width: 6),
-                        Text(
-                          "VIETFLOW",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Image.asset(
+                        "assets/icon/app_icon.png",
+                        width: 90, // 👈 chỉnh lại size vừa phải
+                        height: 90,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ],
                 ),

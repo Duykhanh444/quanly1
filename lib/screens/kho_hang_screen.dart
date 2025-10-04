@@ -165,21 +165,15 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                         ),
                       ],
                     ),
-                    // Logo app
-                    Row(
-                      children: const [
-                        Icon(Icons.warehouse, color: Colors.white, size: 28),
-                        SizedBox(width: 6),
-                        Text(
-                          "VIETFLOW",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
+                    // Logo app (đẩy sang phải)
+                    Align(
+                      alignment: Alignment.topRight,
+                      child: Image.asset(
+                        "assets/icon/app_icon.png",
+                        width: 130, // 👈 giảm size cho cân đối với chữ
+                        height: 130,
+                        fit: BoxFit.contain,
+                      ),
                     ),
                   ],
                 ),

@@ -179,8 +179,9 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Chào + ngày
+                // 👉 Cột chào + ngày
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -201,20 +202,16 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                     ),
                   ],
                 ),
-                // Logo
-                Row(
-                  children: const [
-                    Icon(Icons.warehouse, color: Colors.white),
-                    SizedBox(width: 6),
-                    Text(
-                      "VIETFLOW",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+
+                // 👉 Logo đưa qua phải
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Image.asset(
+                    "assets/icon/app_icon.png",
+                    width: 90,
+                    height: 90,
+                    fit: BoxFit.contain,
+                  ),
                 ),
               ],
             ),
@@ -276,26 +273,16 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                       itemBuilder: (_, index) {
                         final nv = danhSachLoc[index];
                         return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
+                          margin: const EdgeInsets.symmetric(
+                            vertical: 6,
+                            horizontal: 8,
                           ),
-                          elevation: 2,
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.all(12),
-                            leading: _buildAvatar(nv),
-                            title: Text(
-                              nv.hoTen,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF4A00E0),
-                              ),
-                            ),
-                            subtitle: Text(
-                              '${nv.chucVu} • Lương: ${formatVND(nv.luongTheoGio)} VND',
-                              style: const TextStyle(color: Colors.black54),
-                            ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                          elevation: 1.5,
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(14),
                             onTap: () => Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -303,24 +290,94 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                                     ChiTietNhanVienScreen(nhanVienId: nv.id),
                               ),
                             ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Color(0xFF8E2DE2),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 8,
+                                horizontal: 12,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  // Avatar
+                                  CircleAvatar(
+                                    radius: 22,
+                                    backgroundColor: const Color(
+                                      0xFF8E2DE2,
+                                    ).withOpacity(0.15),
+                                    backgroundImage:
+                                        (nv.anhDaiDien != null &&
+                                            nv.anhDaiDien!.isNotEmpty)
+                                        ? NetworkImage(
+                                            ApiService.getAnhUrl(nv.anhDaiDien),
+                                          )
+                                        : null,
+                                    child:
+                                        (nv.anhDaiDien == null ||
+                                            nv.anhDaiDien!.isEmpty)
+                                        ? const Icon(
+                                            Icons.person,
+                                            color: Color(0xFF4A00E0),
+                                            size: 26,
+                                          )
+                                        : null,
                                   ),
-                                  onPressed: () => _suaNhanVien(nv),
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.redAccent,
+                                  const SizedBox(width: 10),
+
+                                  // Thông tin nhân viên
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          nv.hoTen,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 15.5,
+                                            color: Color(0xFF4A00E0),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          '${nv.chucVu} • Lương: ${formatVND(nv.luongTheoGio)} VND',
+                                          style: const TextStyle(
+                                            color: Colors.black54,
+                                            fontSize: 13.5,
+                                            height: 1.2,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
-                                  onPressed: () => _xoaNhanVien(nv),
-                                ),
-                              ],
+
+                                  // Icon sửa / xóa
+                                  Row(
+                                    children: [
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.edit,
+                                          color: Color(0xFF8E2DE2),
+                                          size: 20,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _suaNhanVien(nv),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.redAccent,
+                                          size: 20,
+                                        ),
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                        onPressed: () => _xoaNhanVien(nv),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );

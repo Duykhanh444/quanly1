@@ -464,4 +464,74 @@ class ApiService {
       return false;
     }
   }
+
+  // --------------------- TÀI KHOẢN ---------------------
+  /// Cập nhật thông tin hồ sơ người dùng
+  static Future<bool> updateProfile({
+    required String username,
+    required String email,
+    String? newPassword,
+  }) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$baseUrlAuth/update-profile'),
+        headers: _headersAuth,
+        body: jsonEncode({
+          'username': username,
+          'email': email,
+          if (newPassword != null && newPassword.isNotEmpty)
+            'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 204) {
+        // 200 hoặc 204 chấp nhận là thành công tuỳ backend
+        return true;
+      } else {
+        print(
+          "❌ updateProfile thất bại: ${response.statusCode} ${response.body}",
+        );
+        return false;
+      }
+    } catch (e) {
+      print("Exception updateProfile: $e");
+      return false;
+    }
+  }
+
+  /// Đổi mật khẩu (tên tiếng Việt)
+  static Future<bool> doiMatKhau({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        Uri.parse('$baseUrlAuth/change-password'),
+        headers: _headersAuth,
+        body: jsonEncode({
+          'currentPassword': oldPassword, // ✅ tên đúng với API backend
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Đổi mật khẩu thành công");
+        return true;
+      } else {
+        print("❌ doiMatKhau thất bại: ${response.statusCode} ${response.body}");
+        return false;
+      }
+    } catch (e) {
+      print("Exception doiMatKhau: $e");
+      return false;
+    }
+  }
+
+  /// Alias bằng tiếng Anh để UI gọi nếu dùng tên changePassword(...)
+  static Future<bool> changePassword({
+    required String oldPassword,
+    required String newPassword,
+  }) async {
+    return await doiMatKhau(oldPassword: oldPassword, newPassword: newPassword);
+  }
 }

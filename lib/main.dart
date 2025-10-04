@@ -1,44 +1,50 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../models/hoadon.dart';
-import '../models/khohang.dart';
-import '../models/nhanvien.dart';
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 
-// ===== Firebase Auth + Google Mock =====
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_auth_mocks/firebase_auth_mocks.dart';
-import 'package:google_sign_in_mocks/google_sign_in_mocks.dart';
+import 'screens/account_settings_screen.dart';
 import 'screens/doanh_thu_screen.dart';
-
-// ===== Screens & Services =====
 import 'screens/danh_sach_nhan_vien_screen.dart';
 import 'screens/kho_hang_screen.dart';
 import 'screens/hoa_don_screen.dart';
-import 'services/api_service.dart';
 import 'screens/show_qr_screen.dart';
-import 'api_config.dart';
 import 'screens/api_settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
 
-/// Mock Firebase & Google Sign-In (để test)
-final mockGoogleSignIn = MockGoogleSignIn();
-final mockFirebaseAuth = MockFirebaseAuth(
-  mockUser: MockUser(
-    isAnonymous: false,
-    email: 'mockuser@gmail.com',
-    displayName: 'Mock User',
-    uid: 'mock-uid-123',
-  ),
-);
+import 'models/hoadon.dart';
+import 'models/khohang.dart';
+import 'models/nhanvien.dart';
+import 'services/api_service.dart';
+import 'api_config.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConfig.init();
+
   runApp(const QuanLyXuongApp());
+  configLoading();
 }
 
+/// 🔹 EasyLoading config
+void configLoading() {
+  EasyLoading.instance
+    ..indicatorType = EasyLoadingIndicatorType.circle
+    ..loadingStyle = EasyLoadingStyle.custom
+    ..indicatorSize = 45.0
+    ..radius = 10.0
+    ..progressColor = Colors.white
+    ..backgroundColor = const Color(0xFF4A00E0)
+    ..indicatorColor = Colors.white
+    ..textColor = Colors.white
+    ..maskColor = Colors.black.withOpacity(0.4)
+    ..userInteractions = false
+    ..dismissOnTap = false;
+}
+
+/// ================== APP ROOT ==================
 class QuanLyXuongApp extends StatelessWidget {
   const QuanLyXuongApp({super.key});
 
@@ -48,95 +54,158 @@ class QuanLyXuongApp extends StatelessWidget {
       valueListenable: ApiConfig.hostNotifier,
       builder: (context, host, _) {
         return MaterialApp(
-          title: 'Quản Lý',
+          title: 'Quản Lý Xưởng',
           theme: ThemeData(
             fontFamily: 'Roboto',
-            primaryColor: const Color(0xFF4A00E0), // tím đậm
+            primaryColor: const Color(0xFF4A00E0),
             colorScheme: ColorScheme.fromSwatch().copyWith(
-              secondary: const Color(0xFF8E2DE2), // tím nhạt
+              secondary: const Color(0xFF8E2DE2),
             ),
           ),
           debugShowCheckedModeBanner: false,
+          builder: EasyLoading.init(),
+          onGenerateRoute: _buildPageRoute,
           home: const SplashScreen(),
-          routes: {
-            '/welcome': (context) => const WelcomeScreen(),
-            '/login': (context) => LoginScreen(),
-            '/register': (context) => const RegisterScreen(),
-            '/home': (context) => const HomeScreen(),
-            '/danh-sach-nhan-vien': (context) => const DanhSachNhanVienScreen(),
-            '/kho-hang': (context) => KhoHangScreen(),
-            '/hoa-don': (context) => const HoaDonScreen(),
-            '/cai-dat-api': (context) => const ApiSettingsScreen(),
-            '/show-qr': (context) => const ShowQrScreen(),
-            '/doanh-thu': (context) => const DoanhThuScreen(),
-          },
         );
       },
     );
   }
+
+  /// 🔹 Custom animation khi chuyển trang
+  Route<dynamic> _buildPageRoute(RouteSettings settings) {
+    Widget page;
+    switch (settings.name) {
+      case '/welcome':
+        page = const WelcomeScreen();
+        break;
+      case '/login':
+        page = const LoginScreen();
+        break;
+      case '/register':
+        page = const RegisterScreen();
+        break;
+      case '/home':
+        page = const HomeScreen();
+        break;
+      case '/danh-sach-nhan-vien':
+        page = const DanhSachNhanVienScreen();
+        break;
+      case '/kho-hang':
+        page = KhoHangScreen();
+        break;
+      case '/hoa-don':
+        page = const HoaDonScreen();
+        break;
+      case '/cai-dat-api':
+        page = const ApiSettingsScreen();
+        break;
+      case '/show-qr':
+        page = const ShowQrScreen();
+        break;
+      case '/doanh-thu':
+        page = const DoanhThuScreen();
+        break;
+      default:
+        page = const SplashScreen();
+    }
+
+    return PageRouteBuilder(
+      pageBuilder: (_, __, ___) => page,
+      transitionsBuilder: (context, animation, secondary, child) {
+        const begin = Offset(0.1, 0.1);
+        const end = Offset.zero;
+        const curve = Curves.easeInOut;
+        final tween = Tween(
+          begin: begin,
+          end: end,
+        ).chain(CurveTween(curve: curve));
+        return FadeTransition(
+          opacity: animation,
+          child: SlideTransition(
+            position: animation.drive(tween),
+            child: child,
+          ),
+        );
+      },
+      transitionDuration: const Duration(milliseconds: 400),
+    );
+  }
 }
 
-/// ================= SPLASH SCREEN =================
+/// ================== SPLASH SCREEN ==================
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
-class _SplashScreenState extends State<SplashScreen> {
+class _SplashScreenState extends State<SplashScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+  late Animation<double> _fadeIn;
+
   @override
   void initState() {
     super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
+    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+    _controller.forward();
     _checkToken();
   }
 
-  void _checkToken() async {
+  Future<void> _checkToken() async {
     await Future.delayed(const Duration(seconds: 2));
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
     if (token != null && token.isNotEmpty) {
       ApiService.token = token;
-      if (context.mounted) {
-        Navigator.pushReplacementNamed(context, '/home');
-      }
+      if (context.mounted) Navigator.pushReplacementNamed(context, '/home');
     } else {
-      if (context.mounted) {
-        Navigator.pushReplacementNamed(context, '/welcome');
-      }
+      if (context.mounted) Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+      body: FadeTransition(
+        opacity: _fadeIn,
+        child: Container(
+          width: double.infinity,
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
           ),
-        ),
-        child: const Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(Icons.warehouse, size: 100, color: Colors.white),
-              SizedBox(height: 20),
-              Text(
-                "VIETFLOW",
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 30,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 2,
+          child: Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Image.asset(
+                  "assets/icon/app_icon.png",
+                  width: 180,
+                  height: 180,
                 ),
-              ),
-              SizedBox(height: 30),
-              CircularProgressIndicator(color: Colors.white),
-            ],
+                const SizedBox(height: 20),
+                const Text(
+                  "VIETFLOW",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 32,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 30),
+                const CircularProgressIndicator(color: Colors.white),
+              ],
+            ),
           ),
         ),
       ),
@@ -144,7 +213,7 @@ class _SplashScreenState extends State<SplashScreen> {
   }
 }
 
-/// ================= WELCOME SCREEN =================
+/// ================== WELCOME SCREEN ==================
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
 
@@ -157,12 +226,7 @@ class WelcomeScreen extends StatelessWidget {
           IconButton(
             icon: const Icon(Icons.settings),
             tooltip: "Cài đặt API",
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const ApiSettingsScreen()),
-              );
-            },
+            onPressed: () => Navigator.pushNamed(context, '/cai-dat-api'),
           ),
         ],
       ),
@@ -179,26 +243,24 @@ class WelcomeScreen extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.warehouse, size: 100, color: Colors.white),
+            Image.asset("assets/icon/app_icon.png", width: 180, height: 180),
             const SizedBox(height: 30),
             const Text(
               "Welcome!",
               style: TextStyle(
-                fontSize: 28,
+                fontSize: 30,
                 fontWeight: FontWeight.bold,
                 color: Colors.white,
               ),
             ),
             const SizedBox(height: 10),
             const Text(
-              "Quản lý dễ dàng",
+              "Quản lý dễ dàng cùng VIETFLOW",
               style: TextStyle(color: Colors.white70, fontSize: 16),
             ),
             const SizedBox(height: 50),
             ElevatedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/login');
-              },
+              onPressed: () => Navigator.pushNamed(context, '/login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFF4A00E0),
@@ -211,9 +273,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
-              onPressed: () {
-                Navigator.pushNamed(context, '/register');
-              },
+              onPressed: () => Navigator.pushNamed(context, '/register'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
                 side: const BorderSide(color: Colors.white),
@@ -231,7 +291,7 @@ class WelcomeScreen extends StatelessWidget {
   }
 }
 
-/// ================= HOME SCREEN =================
+/// ================== HOME SCREEN ==================
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
   @override
@@ -244,15 +304,22 @@ class _HomeScreenState extends State<HomeScreen> {
   int _soSanPham = 0;
   int _soHoaDon = 0;
   double _tongDoanhThuThang = 0;
-  double _tongDoanhThuNam = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadSoNhanVien();
-    _loadSoKhoHang();
-    _loadSoHoaDon();
-    _loadDoanhThu();
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    EasyLoading.show(status: 'Đang tải...');
+    await Future.wait([
+      _loadSoNhanVien(),
+      _loadSoKhoHang(),
+      _loadSoHoaDon(),
+      _loadDoanhThu(),
+    ]);
+    EasyLoading.dismiss();
   }
 
   Future<void> _loadSoNhanVien() async {
@@ -278,10 +345,8 @@ class _HomeScreenState extends State<HomeScreen> {
     double tongHoaDon = 0;
     double tongKho = 0;
     double tongLuong = 0;
-
     final now = DateTime.now();
 
-    // ✅ Hóa đơn
     for (HoaDon hd in hoaDonList) {
       if (hd.ngayLap != null &&
           hd.ngayLap!.month == now.month &&
@@ -294,20 +359,14 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // ✅ Kho hàng
     for (KhoHang kho in khoHangList) {
       if (kho.ngayNhap != null &&
           kho.ngayNhap!.month == now.month &&
           kho.ngayNhap!.year == now.year) {
-        if (kho.trangThai == "Đã xuất") {
-          tongKho += kho.giaTri ?? 0;
-        } else if (kho.trangThai == "Hoạt động") {
-          tongKho -= kho.giaTri ?? 0;
-        }
+        tongKho += kho.giaTri ?? 0;
       }
     }
 
-    // ✅ Nhân viên
     for (NhanVien nv in nhanVienList) {
       for (var wd in nv.workDays) {
         if (wd.ngay.month == now.month && wd.ngay.year == now.year) {
@@ -316,12 +375,9 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
 
-    // ✅ Tổng doanh thu tháng (giống DoanhThuScreen)
-    final tongThang = tongHoaDon + tongKho - tongLuong;
-
     if (mounted) {
       setState(() {
-        _tongDoanhThuThang = tongThang;
+        _tongDoanhThuThang = tongHoaDon + tongKho - tongLuong;
       });
     }
   }
@@ -343,38 +399,45 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   children: [
-                    Text(
-                      "Chào buổi sáng,\n${getToday()}",
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    Row(
-                      children: const [
-                        Icon(Icons.warehouse, color: Colors.white, size: 28),
-                        SizedBox(width: 6),
-                        Text(
-                          "VIETFLOW",
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Chào buổi sáng,",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
+                            fontSize: 20,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Text(
+                          getToday(),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
                           ),
                         ),
                       ],
                     ),
+                    // ✅ Logo gọn ở góc phải
+                    Image.asset(
+                      "assets/icon/app_icon.png",
+                      width: 100,
+                      height: 100,
+                    ),
                   ],
                 ),
               ),
+
               const SizedBox(height: 10),
               Expanded(
                 child: Container(
@@ -387,45 +450,42 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: ListView(
                     padding: const EdgeInsets.all(16),
                     children: [
-                      buildCardItem(
+                      _buildCard(
                         icon: Icons.people,
                         title: "Nhân Viên",
                         subtitle: "$_soNhanVien nhân viên",
-                        onTap: () async {
-                          await Navigator.pushNamed(
-                            context,
-                            '/danh-sach-nhan-vien',
-                          );
-                          _loadSoNhanVien();
-                        },
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/danh-sach-nhan-vien',
+                        ).then((_) => _loadSoNhanVien()),
                       ),
-                      buildCardItem(
+                      _buildCard(
                         icon: Icons.receipt,
                         title: "Hóa Đơn",
                         subtitle: "$_soHoaDon hóa đơn",
-                        onTap: () async {
-                          await Navigator.pushNamed(context, '/hoa-don');
-                          _loadSoHoaDon();
-                        },
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/hoa-don',
+                        ).then((_) => _loadSoHoaDon()),
                       ),
-                      buildCardItem(
+                      _buildCard(
                         icon: Icons.warehouse,
                         title: "Kho Hàng",
                         subtitle: "$_soSanPham sản phẩm",
-                        onTap: () async {
-                          await Navigator.pushNamed(context, '/kho-hang');
-                          _loadSoKhoHang();
-                        },
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/kho-hang',
+                        ).then((_) => _loadSoKhoHang()),
                       ),
-                      buildCardItem(
+                      _buildCard(
                         icon: Icons.bar_chart,
                         title: "Doanh Thu",
                         subtitle:
-                            "Tháng ${DateTime.now().month}: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_tongDoanhThuThang)}\n",
-                        onTap: () async {
-                          await Navigator.pushNamed(context, '/doanh-thu');
-                          _loadDoanhThu();
-                        },
+                            "Tháng ${DateTime.now().month}: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_tongDoanhThuThang)}",
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          '/doanh-thu',
+                        ).then((_) => _loadDoanhThu()),
                       ),
                     ],
                   ),
@@ -435,22 +495,16 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ),
+      // ✅ Taskbar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) async {
           setState(() => _currentIndex = index);
-          if (index == 0) {
+          if (index == 0)
             await Navigator.pushNamed(context, '/danh-sach-nhan-vien');
-          }
-          if (index == 1) {
-            await Navigator.pushNamed(context, '/hoa-don');
-          }
-          if (index == 2) {
-            await Navigator.pushNamed(context, '/kho-hang');
-          }
-          if (index == 3) {
-            await Navigator.pushNamed(context, '/doanh-thu');
-          }
+          if (index == 1) await Navigator.pushNamed(context, '/hoa-don');
+          if (index == 2) await Navigator.pushNamed(context, '/kho-hang');
+          if (index == 3) await Navigator.pushNamed(context, '/doanh-thu');
           if (index == 4) {
             showModalBottomSheet(
               context: context,
@@ -485,7 +539,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget buildCardItem({
+  Widget _buildCard({
     required IconData icon,
     required String title,
     required String subtitle,
@@ -542,6 +596,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
+/// ================== ACCOUNT SHEET ==================
 class AccountSheet extends StatefulWidget {
   const AccountSheet({super.key});
 
@@ -559,6 +614,7 @@ class _AccountSheetState extends State<AccountSheet> {
     _loadUser();
   }
 
+  /// 🔹 Lấy thông tin user từ SharedPreferences
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -567,21 +623,10 @@ class _AccountSheetState extends State<AccountSheet> {
     });
   }
 
+  /// 🔹 Đăng xuất (chỉ xóa token)
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
-
-    final username = prefs.getString("username");
-    final password = prefs.getString("password");
-    final remember = prefs.getBool("rememberMe") ?? false;
-
-    await prefs.clear();
-
-    if (remember) {
-      await prefs.setString("username", username ?? "");
-      await prefs.setString("password", password ?? "");
-      await prefs.setBool("rememberMe", true);
-    }
-
+    await prefs.remove("token");
     ApiService.token = null;
 
     if (mounted) {
@@ -592,41 +637,92 @@ class _AccountSheetState extends State<AccountSheet> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
       decoration: const BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Avatar + Info
           CircleAvatar(
-            radius: 40,
-            backgroundColor: const Color(0xFF4A00E0),
-            child: const Icon(Icons.person, size: 50, color: Colors.white),
+            radius: 45,
+            backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
+            child: const Icon(Icons.person, size: 55, color: Color(0xFF4A00E0)),
           ),
           const SizedBox(height: 12),
           Text(
             _userName,
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 4),
-          Text(_userEmail, style: const TextStyle(color: Colors.grey)),
-          const SizedBox(height: 24),
-          ListTile(
-            leading: const Icon(Icons.settings),
-            title: const Text("Cài đặt"),
-            onTap: () {
-              Navigator.pushNamed(context, "/settings");
+          Text(
+            _userEmail,
+            style: const TextStyle(fontSize: 14, color: Colors.grey),
+          ),
+          const SizedBox(height: 20),
+
+          // Menu Options
+          _buildMenuItem(
+            icon: Icons.qr_code,
+            title: "Mã QR",
+            onTap: () => Navigator.pushNamed(context, "/show-qr"),
+          ),
+          _buildMenuItem(
+            icon: Icons.settings,
+            title: "Cài đặt tài khoản",
+            onTap: () async {
+              final result = await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const AccountSettingsScreen(),
+                ),
+              );
+              if (result == true) {
+                await _loadUser();
+              }
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.logout),
-            title: const Text("Đăng xuất"),
-            onTap: _logout,
+          _buildMenuItem(
+            icon: Icons.api,
+            title: "Cài đặt API",
+            onTap: () => Navigator.pushNamed(context, "/cai-dat-api"),
+          ),
+          const Divider(height: 24),
+
+          // Logout Button
+          ElevatedButton.icon(
+            onPressed: _logout,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4A00E0),
+              foregroundColor: Colors.white,
+              minimumSize: const Size(double.infinity, 50),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+            ),
+            icon: const Icon(Icons.logout),
+            label: const Text("Đăng xuất"),
           ),
         ],
       ),
+    );
+  }
+
+  /// Custom item widget
+  Widget _buildMenuItem({
+    required IconData icon,
+    required String title,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      leading: CircleAvatar(
+        backgroundColor: const Color(0xFF4A00E0).withOpacity(0.1),
+        child: Icon(icon, color: const Color(0xFF4A00E0)),
+      ),
+      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w500)),
+      trailing: const Icon(Icons.chevron_right, color: Colors.grey),
+      onTap: onTap,
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import 'login_screen.dart'; // ✅ import LoginScreen thật
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -14,6 +15,31 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   bool _isLoading = false;
+
+  /// ✅ Hiệu ứng chuyển trang (Fade + Slide)
+  void _navigateWithAnimation(Widget page) {
+    Navigator.pushReplacement(
+      context,
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 600),
+        pageBuilder: (_, __, ___) => page,
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          final offsetAnimation =
+              Tween<Offset>(
+                begin: const Offset(0.0, 0.2),
+                end: Offset.zero,
+              ).animate(
+                CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
+              );
+
+          return FadeTransition(
+            opacity: animation,
+            child: SlideTransition(position: offsetAnimation, child: child),
+          );
+        },
+      ),
+    );
+  }
 
   String? _validatePassword(String password) {
     if (password.length < 6) return "⚠️ Mật khẩu ít nhất 6 ký tự";
@@ -65,7 +91,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(const SnackBar(content: Text("✅ Đăng ký thành công")));
-        Navigator.pop(context);
+
+        // ✅ Chuyển về LoginScreen
+        _navigateWithAnimation(const LoginScreen());
       }
     } else {
       if (mounted) {
@@ -121,84 +149,124 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 40),
-            child: Column(
-              children: [
-                const SizedBox(height: 16),
-                const Text(
-                  "Create Account",
-                  style: TextStyle(
-                    fontSize: 26,
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  child: Column(
-                    children: [
-                      _buildTextField(
-                        label: "Email",
-                        icon: Icons.email,
-                        controller: _emailController,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        label: "Họ tên",
-                        icon: Icons.person,
-                        controller: _usernameController,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildTextField(
-                        label: "Mật khẩu",
-                        icon: Icons.lock,
-                        controller: _passwordController,
-                        isPassword: true,
-                      ),
-                      const SizedBox(height: 20),
-                      _buildGradientButton("SIGN UP", _dangKy),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          const Text("Already have an account? "),
-                          GestureDetector(
-                            onTap: () => Navigator.pop(context),
-                            child: const Text(
-                              "Login",
-                              style: TextStyle(
-                                color: Colors.deepPurple,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+  /// Overlay loading mờ nền
+  Widget _buildLoadingOverlay() {
+    return AnimatedOpacity(
+      opacity: _isLoading ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 200),
+      child: IgnorePointer(
+        ignoring: !_isLoading,
+        child: Container(
+          color: Colors.black45,
+          child: const Center(
+            child: CircularProgressIndicator(
+              color: Colors.white,
+              strokeWidth: 4,
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Stack(
+        children: [
+          // Nền gradient
+          Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                colors: [Color(0xFF6A11CB), Color(0xFF2575FC)],
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+              ),
+            ),
+            child: Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 24,
+                  vertical: 40,
+                ),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 16),
+                    const Text(
+                      "Create Account",
+                      style: TextStyle(
+                        fontSize: 26,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(30),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        children: [
+                          _buildTextField(
+                            label: "Email",
+                            icon: Icons.email,
+                            controller: _emailController,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            label: "Họ tên",
+                            icon: Icons.person,
+                            controller: _usernameController,
+                          ),
+                          const SizedBox(height: 16),
+                          _buildTextField(
+                            label: "Mật khẩu",
+                            icon: Icons.lock,
+                            controller: _passwordController,
+                            isPassword: true,
+                          ),
+                          const SizedBox(height: 20),
+                          _buildGradientButton("SIGN UP", _dangKy),
+                          const SizedBox(height: 16),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Text("Already have an account? "),
+                              GestureDetector(
+                                onTap: () {
+                                  _navigateWithAnimation(const LoginScreen());
+                                },
+                                child: const Text(
+                                  "Login",
+                                  style: TextStyle(
+                                    color: Colors.deepPurple,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+
+          // Overlay loading mờ nền
+          _buildLoadingOverlay(),
+        ],
       ),
     );
   }
