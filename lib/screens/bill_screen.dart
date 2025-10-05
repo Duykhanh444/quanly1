@@ -5,6 +5,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import '../models/hoadon.dart';
 import '../utils/bill_config.dart';
@@ -114,53 +115,163 @@ class _BillScreenState extends State<BillScreen> {
       ? _accountNameController.text
       : BillConfig.shopAccountName;
 
-  // ✅ tạo PDF
+  // ✅ tạo PDF với font Roboto hỗ trợ tiếng Việt
   Future<pw.Document> _generatePdf() async {
+    final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
+    final ttf = pw.Font.ttf(fontData.buffer.asByteData());
+
+    final boldData = await rootBundle.load("assets/fonts/Roboto-Bold.ttf");
+    final boldTtf = pw.Font.ttf(boldData.buffer.asByteData());
+
     final pdf = pw.Document();
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(24),
         build: (pw.Context context) {
           return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text(
-                _shopNameController.text,
-                style: pw.TextStyle(
-                  fontSize: 18,
-                  fontWeight: pw.FontWeight.bold,
-                ),
-              ),
-              pw.Text(_shopAddressController.text),
-              pw.Text("ĐT: ${_shopPhoneController.text}"),
-              pw.Divider(),
-              pw.Text("Hóa đơn: ${_hoaDon.maHoaDon}"),
-              pw.Text(
-                "Ngày: ${DateFormat('dd/MM/yyyy HH:mm').format(_hoaDon.ngayLap ?? DateTime.now())}",
-              ),
-              pw.Text("Thanh toán: ${widget.phuongThuc}"),
-              pw.Divider(),
-              ..._hoaDon.items.map(
-                (it) => pw.Row(
-                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+              // Header cửa hàng
+              pw.Center(
+                child: pw.Column(
                   children: [
-                    pw.Text(it.tenHang),
                     pw.Text(
-                      "${it.soLuong} x ${formatMoney(it.giaTien)} = ${formatMoney(it.thanhTien())}",
+                      _shopNameController.text,
+                      style: pw.TextStyle(font: boldTtf, fontSize: 18),
+                    ),
+                    pw.Text(
+                      _shopAddressController.text,
+                      style: pw.TextStyle(font: ttf),
+                    ),
+                    pw.Text(
+                      "ĐT: ${_shopPhoneController.text}",
+                      style: pw.TextStyle(font: ttf),
                     ),
                   ],
                 ),
               ),
+              pw.SizedBox(height: 10),
               pw.Divider(),
+
+              // Thông tin hóa đơn
               pw.Text(
-                "TỔNG CỘNG: ${formatMoney(_hoaDon.tongTien)}",
-                style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                "HÓA ĐƠN BÁN HÀNG",
+                style: pw.TextStyle(font: boldTtf, fontSize: 16),
+              ),
+              pw.SizedBox(height: 5),
+              pw.Text(
+                "Mã HĐ: ${_hoaDon.maHoaDon}",
+                style: pw.TextStyle(font: ttf),
+              ),
+              pw.Text(
+                "Ngày: ${DateFormat('dd/MM/yyyy HH:mm').format(_hoaDon.ngayLap ?? DateTime.now())}",
+                style: pw.TextStyle(font: ttf),
+              ),
+              pw.Text(
+                "Thanh toán: ${widget.phuongThuc}",
+                style: pw.TextStyle(font: ttf),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Divider(),
+
+              // Danh sách hàng hóa
+              pw.Table(
+                border: pw.TableBorder.all(),
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(3),
+                  1: const pw.FlexColumnWidth(1),
+                  2: const pw.FlexColumnWidth(2),
+                  3: const pw.FlexColumnWidth(2),
+                },
+                children: [
+                  pw.TableRow(
+                    decoration: const pw.BoxDecoration(
+                      color: PdfColors.grey300,
+                    ),
+                    children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          "Tên hàng",
+                          style: pw.TextStyle(font: boldTtf),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          "SL",
+                          style: pw.TextStyle(font: boldTtf),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          "Đơn giá",
+                          style: pw.TextStyle(font: boldTtf),
+                        ),
+                      ),
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(4),
+                        child: pw.Text(
+                          "Thành tiền",
+                          style: pw.TextStyle(font: boldTtf),
+                        ),
+                      ),
+                    ],
+                  ),
+                  ..._hoaDon.items.map(
+                    (it) => pw.TableRow(
+                      children: [
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            it.tenHang,
+                            style: pw.TextStyle(font: ttf),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            "${it.soLuong}",
+                            style: pw.TextStyle(font: ttf),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            formatMoney(it.giaTien),
+                            style: pw.TextStyle(font: ttf),
+                          ),
+                        ),
+                        pw.Padding(
+                          padding: const pw.EdgeInsets.all(4),
+                          child: pw.Text(
+                            formatMoney(it.thanhTien()),
+                            style: pw.TextStyle(font: ttf),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              pw.Divider(),
+              pw.Align(
+                alignment: pw.Alignment.centerRight,
+                child: pw.Text(
+                  "TỔNG CỘNG: ${formatMoney(_hoaDon.tongTien)}",
+                  style: pw.TextStyle(font: boldTtf, fontSize: 14),
+                ),
               ),
             ],
           );
         },
       ),
     );
+
     return pdf;
   }
 

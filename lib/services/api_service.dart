@@ -450,7 +450,8 @@ class ApiService {
       return "${ApiConfig.host}/images/placeholder.jpg";
     }
     if (path.startsWith('http')) return path;
-    return "${ApiConfig.host}/$path";
+    // ✅ Sửa đúng đường dẫn ảnh theo thư mục thực tế
+    return "${ApiConfig.host}/uploads/$path";
   }
 
   // --------------------- KIỂM TRA KẾT NỐI SERVER ---------------------

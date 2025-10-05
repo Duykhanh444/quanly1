@@ -19,8 +19,11 @@ class _KhoHangScreenState extends State<KhoHangScreen>
   List<KhoHang> _danhSachKho = [];
   List<KhoHang> _filteredKho = [];
   bool _isLoading = true;
-  int _currentIndex = 2; // ✅ Tab Kho Hàng
+  int _currentIndex = 2;
   String _searchText = "";
+
+  int _tongHoatDong = 0;
+  int _tongDaXuat = 0;
 
   @override
   void initState() {
@@ -34,6 +37,11 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     final ds = await ApiService.layDanhSachKhoHang();
     setState(() {
       _danhSachKho = ds;
+      _tongHoatDong = ds
+          .where((k) => k.trangThai == "Hoạt động")
+          .toList()
+          .length;
+      _tongDaXuat = ds.where((k) => k.trangThai == "Đã xuất").toList().length;
       _applySearch();
       _isLoading = false;
     });
@@ -105,11 +113,8 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     }
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat("dd/MM/yyyy").format(date);
-  }
+  String _formatDate(DateTime date) => DateFormat("dd/MM/yyyy").format(date);
 
-  // ✅ format tiền VND
   String _formatCurrency(num? value) {
     if (value == null) return "0 đ";
     final formatter = NumberFormat("#,###", "vi_VN");
@@ -123,7 +128,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     return Scaffold(
       body: Column(
         children: [
-          // ✅ Gradient Header
+          // ====== HEADER ======
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
@@ -139,11 +144,12 @@ class _KhoHangScreenState extends State<KhoHangScreen>
               ),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // --- Tiêu đề & logo ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    // Bên trái
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -151,34 +157,46 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                           "Danh sách kho hàng",
                           style: TextStyle(
                             color: Colors.white,
-                            fontSize: 18,
+                            fontSize: 20,
                             fontWeight: FontWeight.bold,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           today,
-                          style: TextStyle(
-                            color: Colors.white.withOpacity(0.9),
-                            fontSize: 16,
-                          ),
+                          style: TextStyle(color: Colors.white70, fontSize: 16),
                         ),
                       ],
                     ),
-                    // Logo app (đẩy sang phải)
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Image.asset(
-                        "assets/icon/app_icon.png",
-                        width: 130, // 👈 giảm size cho cân đối với chữ
-                        height: 130,
-                        fit: BoxFit.contain,
-                      ),
+                    Image.asset(
+                      "assets/icon/app_icon.png",
+                      width: 110,
+                      height: 110,
+                      fit: BoxFit.contain,
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                // ✅ Search bar
+
+                // --- 2 ô tổng số kho ---
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _buildAnimatedBox(
+                      "Đang hoạt động",
+                      _tongHoatDong,
+                      Colors.green,
+                    ),
+                    _buildAnimatedBox(
+                      "Đã xuất kho",
+                      _tongDaXuat,
+                      Colors.orange,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+
+                // --- Thanh tìm kiếm ---
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
@@ -203,7 +221,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             ),
           ),
 
-          // ✅ TabBar (thêm nút xóa ở tab Lịch sử)
+          // ====== TAB ======
           Material(
             color: Colors.white,
             child: TabBar(
@@ -236,7 +254,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             ),
           ),
 
-          // ✅ Nội dung
+          // ====== NỘI DUNG ======
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -248,7 +266,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
         ],
       ),
 
-      // ✅ FloatingActionButton thêm kho
+      // ====== FAB ======
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4A00E0),
         child: const Icon(Icons.add, color: Colors.white),
@@ -261,27 +279,17 @@ class _KhoHangScreenState extends State<KhoHangScreen>
         },
       ),
 
+      // ====== NAVBAR ======
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
-
-          if (index == 0) {
+          if (index == 0)
             Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
-          }
-          if (index == 1) {
-            Navigator.pushReplacementNamed(context, '/hoa-don');
-          }
-          if (index == 2) {
-            Navigator.pushReplacementNamed(context, '/kho-hang');
-          }
-          if (index == 3) {
-            Navigator.pushReplacementNamed(context, '/doanh-thu');
-          }
-          if (index == 4) {
-            // 👉 về HomeScreen trong QuanLyXuongApp
-            Navigator.pushReplacementNamed(context, '/home');
-          }
+          if (index == 1) Navigator.pushReplacementNamed(context, '/hoa-don');
+          if (index == 2) Navigator.pushReplacementNamed(context, '/kho-hang');
+          if (index == 3) Navigator.pushReplacementNamed(context, '/doanh-thu');
+          if (index == 4) Navigator.pushReplacementNamed(context, '/home');
         },
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF4A00E0),
@@ -307,7 +315,41 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     );
   }
 
-  // ✅ Danh sách kho
+  // ====== HỘP SỐ LƯỢNG ANIMATED ======
+  Widget _buildAnimatedBox(String title, int count, Color color) {
+    return Expanded(
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.15),
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Column(
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              "$count", // ✅ hiển thị trực tiếp, không đếm
+              style: TextStyle(
+                color: color,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ====== DANH SÁCH KHO ======
   Widget _buildList(String trangThai) {
     final ds = _filteredKho.where((k) => k.trangThai == trangThai).toList();
     ds.sort(
@@ -365,7 +407,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          // Tên kho
                           Text(
                             kho.tenKho ?? "",
                             style: TextStyle(
@@ -373,8 +414,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-
-                          // ✅ Ghi chú
                           if (kho.ghiChu != null && kho.ghiChu!.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 2),
@@ -387,17 +426,12 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                                 ),
                               ),
                             ),
-
                           SizedBox(height: 4),
-
-                          // Ngày nhập - xuất
                           Text(
                             "Ngày nhập: ${_formatDate(start)}"
                             "${kho.ngayXuat != null ? " | Ngày xuất: ${_formatDate(end)}" : ""}",
                             style: TextStyle(color: Colors.grey[700]),
                           ),
-
-                          // Số ngày tồn kho
                           if (soNgay > 0)
                             Container(
                               margin: const EdgeInsets.only(top: 6),
@@ -417,8 +451,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                                 ),
                               ),
                             ),
-
-                          // Giá trị
                           if (kho.giaTri != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 6),

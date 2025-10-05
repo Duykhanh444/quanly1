@@ -34,12 +34,6 @@ class VietQRWidget extends StatelessWidget {
       addInfo: addInfo,
     );
 
-    // Nếu bạn muốn dùng ảnh từ vietqr.io thay vì payload, uncomment:
-    // final bankCode = BillConfig.bankNameToCode["VIETCOMBANK"]!;
-    // final imageUrl = BillConfig.generateVietQRImageUrl(
-    //   bankCode: bankCode, accountNumber: accountNumber, amount: amount, addInfo: addInfo,
-    // );
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

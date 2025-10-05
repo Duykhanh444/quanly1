@@ -7,7 +7,7 @@ import 'them_nhan_vien_screen.dart';
 import 'chi_tiet_nhan_vien_screen.dart';
 import 'hoa_don_screen.dart';
 import 'kho_hang_screen.dart';
-import '../main.dart'; // 🔹 để gọi MyApp khi quay về Trang chủ
+import '../main.dart';
 
 class DanhSachNhanVienScreen extends StatefulWidget {
   const DanhSachNhanVienScreen({Key? key}) : super(key: key);
@@ -28,11 +28,9 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
   void initState() {
     super.initState();
     _loadDanhSach();
-
     ApiConfig.hostNotifier.addListener(() {
       _loadDanhSach();
     });
-
     _searchController.addListener(() {
       _locNhanVien(_searchController.text);
     });
@@ -62,6 +60,13 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
 
   String formatVND(double value) => numberFormat.format(value);
 
+  double _tinhTongLuongTatCa() {
+    return danhSachNhanVien.fold(
+      0,
+      (sum, nv) => sum + (nv.tongTienDaNhan ?? 0),
+    );
+  }
+
   Future<void> _themNhanVien() async {
     final result = await Navigator.push<NhanVien>(
       context,
@@ -72,22 +77,6 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
         danhSachNhanVien.add(result);
         _locNhanVien(_searchController.text);
       });
-    }
-  }
-
-  Future<void> _suaNhanVien(NhanVien nv) async {
-    final result = await Navigator.push<NhanVien>(
-      context,
-      MaterialPageRoute(builder: (_) => ThemNhanVienScreen(nhanVien: nv)),
-    );
-    if (result != null) {
-      int index = danhSachNhanVien.indexWhere((e) => e.id == result.id);
-      if (index != -1) {
-        setState(() {
-          danhSachNhanVien[index] = result;
-          _locNhanVien(_searchController.text);
-        });
-      }
     }
   }
 
@@ -128,20 +117,6 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
     }
   }
 
-  Widget _buildAvatar(NhanVien nv) {
-    final hasAvatar = nv.anhDaiDien != null && nv.anhDaiDien!.isNotEmpty;
-    final url = hasAvatar ? ApiService.getAnhUrl(nv.anhDaiDien) : null;
-
-    return CircleAvatar(
-      radius: 24,
-      backgroundColor: const Color(0xFF8E2DE2).withOpacity(0.2),
-      backgroundImage: hasAvatar ? NetworkImage(url!) : null,
-      child: !hasAvatar
-          ? const Icon(Icons.person, color: Color(0xFF4A00E0), size: 28)
-          : null,
-    );
-  }
-
   String getChaoBuoi() {
     final gio = DateTime.now().hour;
     if (gio < 12) return "Chào buổi sáng,";
@@ -178,39 +153,47 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // 👉 Cột chào + ngày
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      getChaoBuoi(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.w500,
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        getChaoBuoi(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
-                    ),
-                    Text(
-                      today,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 16,
+                      Text(
+                        today,
+                        style: const TextStyle(
+                          color: Colors.white70,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 8),
+                      Text(
+                        '💰 Tổng lương: ${numberFormat.format(_tinhTongLuongTatCa())} VND',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        softWrap: true,
+                      ),
+                    ],
+                  ),
                 ),
-
-                // 👉 Logo đưa qua phải
-                Align(
-                  alignment: Alignment.topRight,
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
                   child: Image.asset(
                     "assets/icon/app_icon.png",
-                    width: 90,
-                    height: 90,
-                    fit: BoxFit.contain,
+                    width: 80,
+                    height: 80,
+                    fit: BoxFit.cover,
                   ),
                 ),
               ],
@@ -219,7 +202,7 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
 
           const SizedBox(height: 12),
 
-          // Tiêu đề + tìm kiếm
+          // Thanh tiêu đề + tìm kiếm
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -292,18 +275,17 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                             ),
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
-                                vertical: 8,
+                                vertical: 10,
                                 horizontal: 12,
                               ),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
-                                  // Avatar
                                   CircleAvatar(
-                                    radius: 22,
+                                    radius: 24,
                                     backgroundColor: const Color(
                                       0xFF8E2DE2,
-                                    ).withOpacity(0.15),
+                                    ).withOpacity(0.1),
                                     backgroundImage:
                                         (nv.anhDaiDien != null &&
                                             nv.anhDaiDien!.isNotEmpty)
@@ -322,8 +304,6 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                                         : null,
                                   ),
                                   const SizedBox(width: 10),
-
-                                  // Thông tin nhân viên
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment:
@@ -336,45 +316,91 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                                             fontSize: 15.5,
                                             color: Color(0xFF4A00E0),
                                           ),
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          '${nv.chucVu} • Lương: ${formatVND(nv.luongTheoGio)} VND',
-                                          style: const TextStyle(
-                                            color: Colors.black54,
-                                            fontSize: 13.5,
-                                            height: 1.2,
+                                        const SizedBox(height: 6),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.phone,
+                                              color: Colors.blueAccent,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                (nv.soDienThoai != null &&
+                                                        nv
+                                                            .soDienThoai!
+                                                            .isNotEmpty)
+                                                    ? nv.soDienThoai!
+                                                    : "Chưa có số điện thoại",
+                                                style: const TextStyle(
+                                                  color: Colors.black54,
+                                                  fontSize: 13.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+
+                                        const SizedBox(height: 4),
+                                        Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.access_time,
+                                              color: Colors.orange,
+                                              size: 16,
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Expanded(
+                                              child: Text(
+                                                "Lương theo giờ: ${formatVND(nv.luongTheoGio)} VND",
+                                                style: const TextStyle(
+                                                  color: Colors.black54,
+                                                  fontSize: 13.5,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 4),
+                                        if (nv.tongTienDaNhan != null)
+                                          Row(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              const Icon(
+                                                Icons.monetization_on,
+                                                color: Colors.green,
+                                                size: 16,
+                                              ),
+                                              const SizedBox(width: 6),
+                                              Expanded(
+                                                child: Text(
+                                                  "Tổng đã nhận: ${formatVND(nv.tongTienDaNhan!)} VND",
+                                                  style: const TextStyle(
+                                                    color: Colors.black87,
+                                                    fontSize: 13.5,
+                                                    fontWeight: FontWeight.w500,
+                                                  ),
+                                                  softWrap: true,
+                                                ),
+                                              ),
+                                            ],
                                           ),
-                                        ),
                                       ],
                                     ),
                                   ),
-
-                                  // Icon sửa / xóa
-                                  Row(
-                                    children: [
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.edit,
-                                          color: Color(0xFF8E2DE2),
-                                          size: 20,
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        onPressed: () => _suaNhanVien(nv),
-                                      ),
-                                      const SizedBox(width: 4),
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete,
-                                          color: Colors.redAccent,
-                                          size: 20,
-                                        ),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        onPressed: () => _xoaNhanVien(nv),
-                                      ),
-                                    ],
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.redAccent,
+                                      size: 20,
+                                    ),
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: () => _xoaNhanVien(nv),
                                   ),
                                 ],
                               ),
@@ -391,23 +417,12 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
         currentIndex: _currentIndex,
         onTap: (index) {
           setState(() => _currentIndex = index);
-
-          if (index == 0) {
+          if (index == 0)
             Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
-          }
-          if (index == 1) {
-            Navigator.pushReplacementNamed(context, '/hoa-don');
-          }
-          if (index == 2) {
-            Navigator.pushReplacementNamed(context, '/kho-hang');
-          }
-          if (index == 3) {
-            Navigator.pushReplacementNamed(context, '/doanh-thu');
-          }
-          if (index == 4) {
-            // 👉 về HomeScreen trong QuanLyXuongApp
-            Navigator.pushReplacementNamed(context, '/home');
-          }
+          if (index == 1) Navigator.pushReplacementNamed(context, '/hoa-don');
+          if (index == 2) Navigator.pushReplacementNamed(context, '/kho-hang');
+          if (index == 3) Navigator.pushReplacementNamed(context, '/doanh-thu');
+          if (index == 4) Navigator.pushReplacementNamed(context, '/home');
         },
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF4A00E0),

@@ -597,6 +597,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 /// ================== ACCOUNT SHEET ==================
+/// ================== ACCOUNT SHEET ==================
 class AccountSheet extends StatefulWidget {
   const AccountSheet({super.key});
 
@@ -614,7 +615,6 @@ class _AccountSheetState extends State<AccountSheet> {
     _loadUser();
   }
 
-  /// 🔹 Lấy thông tin user từ SharedPreferences
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
@@ -623,7 +623,6 @@ class _AccountSheetState extends State<AccountSheet> {
     });
   }
 
-  /// 🔹 Đăng xuất (chỉ xóa token)
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
@@ -636,80 +635,84 @@ class _AccountSheetState extends State<AccountSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Avatar + Info
-          CircleAvatar(
-            radius: 45,
-            backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
-            child: const Icon(Icons.person, size: 55, color: Color(0xFF4A00E0)),
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
           ),
-          const SizedBox(height: 12),
-          Text(
-            _userName,
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          Text(
-            _userEmail,
-            style: const TextStyle(fontSize: 14, color: Colors.grey),
-          ),
-          const SizedBox(height: 20),
-
-          // Menu Options
-          _buildMenuItem(
-            icon: Icons.qr_code,
-            title: "Mã QR",
-            onTap: () => Navigator.pushNamed(context, "/show-qr"),
-          ),
-          _buildMenuItem(
-            icon: Icons.settings,
-            title: "Cài đặt tài khoản",
-            onTap: () async {
-              final result = await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const AccountSettingsScreen(),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Avatar + Info
+              CircleAvatar(
+                radius: 45,
+                backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
+                child: const Icon(
+                  Icons.person,
+                  size: 55,
+                  color: Color(0xFF4A00E0),
                 ),
-              );
-              if (result == true) {
-                await _loadUser();
-              }
-            },
-          ),
-          _buildMenuItem(
-            icon: Icons.api,
-            title: "Cài đặt API",
-            onTap: () => Navigator.pushNamed(context, "/cai-dat-api"),
-          ),
-          const Divider(height: 24),
-
-          // Logout Button
-          ElevatedButton.icon(
-            onPressed: _logout,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF4A00E0),
-              foregroundColor: Colors.white,
-              minimumSize: const Size(double.infinity, 50),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
               ),
-            ),
-            icon: const Icon(Icons.logout),
-            label: const Text("Đăng xuất"),
+              const SizedBox(height: 12),
+              Text(
+                _userName,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                _userEmail,
+                style: const TextStyle(fontSize: 14, color: Colors.grey),
+              ),
+              const SizedBox(height: 20),
+
+              // Menu Options
+              _buildMenuItem(
+                icon: Icons.qr_code,
+                title: "Mã QR",
+                onTap: () => Navigator.pushNamed(context, "/show-qr"),
+              ),
+              _buildMenuItem(
+                icon: Icons.settings,
+                title: "Cài đặt tài khoản",
+                onTap: () async {
+                  final result = await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const AccountSettingsScreen(),
+                    ),
+                  );
+                  if (result == true) await _loadUser();
+                },
+              ),
+
+              const Divider(height: 24),
+
+              // Logout Button
+              ElevatedButton.icon(
+                onPressed: _logout,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF4A00E0),
+                  foregroundColor: Colors.white,
+                  minimumSize: const Size(double.infinity, 50),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                ),
+                icon: const Icon(Icons.logout),
+                label: const Text("Đăng xuất"),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
 
-  /// Custom item widget
   Widget _buildMenuItem({
     required IconData icon,
     required String title,

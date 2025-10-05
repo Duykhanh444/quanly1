@@ -6,6 +6,8 @@ import '../models/workday.dart';
 import '../services/api_service.dart';
 import 'them_nhan_vien_screen.dart';
 import '../api_config.dart'; // ✅ thêm import ApiConfig
+import 'xem_anh_screen.dart';
+import 'package:url_launcher/url_launcher.dart'; // ✅ thêm để gọi điện
 
 class ChiTietNhanVienScreen extends StatefulWidget {
   final int nhanVienId;
@@ -35,6 +37,21 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
 
   String _formatVND(double value) =>
       '${_currencyFormatter.format(value.round())} ₫';
+
+  Future<void> _goiDienThoai(String soDienThoai) async {
+    final Uri uri = Uri(scheme: 'tel', path: soDienThoai);
+
+    try {
+      // 🔹 Bắt buộc phải mở ở chế độ "external" để ra ứng dụng gọi điện
+      if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+        throw 'Không thể mở ứng dụng gọi điện';
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Không thể mở ứng dụng gọi điện')),
+      );
+    }
+  }
 
   // --- Thêm ngày công ---
   Future<void> _themNgayLam() async {
@@ -155,7 +172,7 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
       );
     }
 
-    // Tính tổng tiền đã nhận
+    // --- Tính tổng tiền đã nhận ---
     double tongTienDaNhan = nhanVien!.workDays.fold(
       0,
       (prev, wd) => prev + (nhanVien!.luongTheoGio * wd.soGio),
@@ -168,20 +185,84 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
         child: ListView(
           children: [
             Center(
-              child: CircleAvatar(
-                radius: 60,
-                backgroundImage: nhanVien!.anhDaiDien != null
-                    ? NetworkImage(
-                        '${ApiConfig.host}/uploads/${nhanVien!.anhDaiDien}', // ✅ sửa
-                      )
-                    : null,
-                child: nhanVien!.anhDaiDien == null
-                    ? const Icon(Icons.person, size: 60)
-                    : null,
+              child: GestureDetector(
+                onTap: () {
+                  if (nhanVien!.anhDaiDien != null) {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => XemAnhScreen(
+                          imageUrl:
+                              '${ApiConfig.host}/uploads/${nhanVien!.anhDaiDien}',
+                          heroTag: 'avatar_${nhanVien!.id}',
+                        ),
+                      ),
+                    );
+                  }
+                },
+                child: Hero(
+                  tag: 'avatar_${nhanVien!.id}',
+                  child: CircleAvatar(
+                    radius: 60,
+                    backgroundImage: nhanVien!.anhDaiDien != null
+                        ? NetworkImage(
+                            '${ApiConfig.host}/uploads/${nhanVien!.anhDaiDien}',
+                          )
+                        : null,
+                    child: nhanVien!.anhDaiDien == null
+                        ? const Icon(Icons.person, size: 60)
+                        : null,
+                  ),
+                ),
               ),
             ),
+
             const SizedBox(height: 16),
             Text('📞 SĐT: ${nhanVien!.soDienThoai}'),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: () {
+                if (nhanVien!.soDienThoai != null &&
+                    nhanVien!.soDienThoai!.isNotEmpty) {
+                  _goiDienThoai(nhanVien!.soDienThoai!);
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Nhân viên chưa có số điện thoại'),
+                    ),
+                  );
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 28,
+                  vertical: 14,
+                ),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                elevation: 4,
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: const [
+                  Icon(Icons.phone, color: Colors.white, size: 22),
+                  SizedBox(width: 8),
+                  Text(
+                    'GỌI NGAY',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 18,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 8),
             Text('🧰 Chức vụ: ${nhanVien!.chucVu}'),
             Text('⏱️ Tổng giờ đã chấm: ${nhanVien!.tongSoGioDaChamCong}'),
             Text('💰 Tổng tiền đã nhận: ${_formatVND(tongTienDaNhan)}'),

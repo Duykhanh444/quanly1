@@ -6,6 +6,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:flutter/services.dart' show rootBundle;
 
 import '../screens/doanh_thu_screen.dart'; // để dùng model DoanhThuThang
 
@@ -239,14 +240,26 @@ class ChiTietDoanhThuScreen extends StatelessWidget {
     double tongKhoXuat,
     double tongDoanhThuNam,
   ) async {
+    // Nạp font Roboto
+    final robotoRegular = pw.Font.ttf(
+      await rootBundle.load("assets/fonts/Roboto-Regular.ttf"),
+    );
+    final robotoBold = pw.Font.ttf(
+      // nếu chưa có file Bold, bạn có thể dùng tạm Regular
+      await rootBundle.load("assets/fonts/Roboto-Bold.ttf"),
+    );
+
     final pdf = pw.Document();
 
     pdf.addPage(
       pw.MultiPage(
+        theme: pw.ThemeData.withFont(base: robotoRegular, bold: robotoBold),
         build: (_) => [
-          pw.Text(
-            "BÁO CÁO DOANH THU NĂM",
-            style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+          pw.Center(
+            child: pw.Text(
+              "BÁO CÁO DOANH THU NĂM",
+              style: pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold),
+            ),
           ),
           pw.SizedBox(height: 15),
           pw.Table.fromTextArray(
@@ -259,6 +272,11 @@ class ChiTietDoanhThuScreen extends StatelessWidget {
               "Kho xuất",
               "Doanh thu",
             ],
+            headerStyle: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 12,
+            ),
+            cellStyle: const pw.TextStyle(fontSize: 11),
             data: [
               ...dsDoanhThu.map(
                 (dt) => [

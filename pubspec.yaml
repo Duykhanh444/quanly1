@@ -12,12 +12,11 @@ dependencies:
   flutter:
     sdk: flutter
   flutter_easyloading: ^3.0.5
-
-  # Firebase core + auth + google sign in
+  photo_view: ^0.15.0
+ 
   firebase_core: ^3.6.0
-  firebase_auth: ^5.1.4
-  google_sign_in: ^6.2.1
-
+ 
+  url_launcher: ^6.3.0
   # Các package khác
   share_plus: ^10.0.2
   path_provider: ^2.1.5
@@ -34,7 +33,7 @@ dependencies:
   pdf: ^3.10.7
   printing: ^5.12.0
   convert: ^3.1.1   # ✅ để trong dependencies
-
+  
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -43,6 +42,7 @@ dev_dependencies:
   google_sign_in_mocks: ^0.3.0   # ✅ test Google Sign-In fake
   flutter_launcher_icons: ^0.13.1   # ✅ tạo icon app
   flutter_native_splash: ^2.4.0    # ✅ splash screen
+  change_app_package_name: ^1.2.0
 
 flutter:
   uses-material-design: true
@@ -50,6 +50,8 @@ flutter:
   assets:
     - assets/icon/app_icon.png   # ✅ icon/logo chính
     - assets/icon/               # thư mục chứa logo
+    - assets/fonts/Roboto-Regular.ttf   # ✅ font chữ chính
+    - assets/fonts/Roboto-Bold.ttf      # ✅ font chữ đậm
 
 # ✅ Cấu hình icon app
 flutter_launcher_icons:

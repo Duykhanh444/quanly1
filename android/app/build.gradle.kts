@@ -6,12 +6,12 @@ plugins {
 }
 
 android {
-    namespace = "com.example.quan_ly_xuong"
+    namespace = "com.vietflow.app"
     compileSdk = 35 // ✅ Cập nhật compileSdk rõ ràng
     ndkVersion = "27.0.12077973" // ✅ Cấu hình đúng NDK version theo yêu cầu plugin
 
     defaultConfig {
-        applicationId = "com.example.quan_ly_xuong"
+        applicationId = "com.vietflow.app"
         minSdk = 23
         targetSdk = 33
         versionCode = 1
