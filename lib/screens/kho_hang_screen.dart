@@ -4,9 +4,6 @@ import '../models/khohang.dart';
 import '../services/api_service.dart';
 import 'chi_tiet_kho_hang_screen.dart';
 import 'them_kho_hang_screen.dart';
-import 'danh_sach_nhan_vien_screen.dart';
-import 'hoa_don_screen.dart';
-import '../main.dart';
 
 class KhoHangScreen extends StatefulWidget {
   @override
@@ -37,11 +34,8 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     final ds = await ApiService.layDanhSachKhoHang();
     setState(() {
       _danhSachKho = ds;
-      _tongHoatDong = ds
-          .where((k) => k.trangThai == "Hoạt động")
-          .toList()
-          .length;
-      _tongDaXuat = ds.where((k) => k.trangThai == "Đã xuất").toList().length;
+      _tongHoatDong = ds.where((k) => k.trangThai == "Hoạt động").length;
+      _tongDaXuat = ds.where((k) => k.trangThai == "Đã xuất").length;
       _applySearch();
       _isLoading = false;
     });
@@ -65,16 +59,16 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Xóa kho hàng"),
-        content: Text("Bạn có chắc muốn xóa kho này không?"),
+        title: const Text("Xóa kho hàng"),
+        content: const Text("Bạn có chắc muốn xóa kho này không?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text("Hủy"),
+            child: const Text("Hủy"),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text("Xóa", style: TextStyle(color: Colors.red)),
+            child: const Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -90,16 +84,16 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text("Xóa tất cả lịch sử"),
-        content: Text("Bạn có chắc muốn xóa toàn bộ kho đã xuất không?"),
+        title: const Text("Xóa tất cả lịch sử"),
+        content: const Text("Bạn có chắc muốn xóa toàn bộ kho đã xuất không?"),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text("Hủy"),
+            child: const Text("Hủy"),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text("Xóa", style: TextStyle(color: Colors.red)),
+            child: const Text("Xóa", style: TextStyle(color: Colors.red)),
           ),
         ],
       ),
@@ -128,7 +122,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     return Scaffold(
       body: Column(
         children: [
-          // ====== HEADER ======
+          // ===== HEADER =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
@@ -146,14 +140,13 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- Tiêu đề & logo ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           "Danh sách kho hàng",
                           style: TextStyle(
                             color: Colors.white,
@@ -164,39 +157,38 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                         const SizedBox(height: 4),
                         Text(
                           today,
-                          style: TextStyle(color: Colors.white70, fontSize: 16),
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 16,
+                          ),
                         ),
                       ],
                     ),
                     Image.asset(
                       "assets/icon/app_icon.png",
-                      width: 110,
-                      height: 110,
+                      width: 100,
+                      height: 100,
                       fit: BoxFit.contain,
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // --- 2 ô tổng số kho ---
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _buildAnimatedBox(
-                      "Đang hoạt động",
+                      "Kho Hàng Nhập",
                       _tongHoatDong,
                       Colors.green,
                     ),
                     _buildAnimatedBox(
-                      "Đã xuất kho",
+                      "Kho Hàng Xuất",
                       _tongDaXuat,
                       Colors.orange,
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-
-                // --- Thanh tìm kiếm ---
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
@@ -204,7 +196,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                     borderRadius: BorderRadius.circular(30),
                   ),
                   child: TextField(
-                    decoration: InputDecoration(
+                    decoration: const InputDecoration(
                       hintText: "Tìm kiếm kho hàng...",
                       border: InputBorder.none,
                       icon: Icon(Icons.search, color: Colors.grey),
@@ -221,7 +213,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             ),
           ),
 
-          // ====== TAB ======
+          // ===== TAB =====
           Material(
             color: Colors.white,
             child: TabBar(
@@ -230,17 +222,17 @@ class _KhoHangScreenState extends State<KhoHangScreen>
               labelColor: const Color(0xFF4A00E0),
               unselectedLabelColor: Colors.grey,
               tabs: [
-                Tab(text: "Đang hoạt động"),
+                const Tab(text: "Kho Hàng Nhập"),
                 Tab(
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text("Đã Xuất Kho"),
+                      const Text("Kho Hàng Xuất"),
                       const SizedBox(width: 4),
                       IconButton(
                         padding: EdgeInsets.zero,
-                        constraints: BoxConstraints(),
-                        icon: Icon(
+                        constraints: const BoxConstraints(),
+                        icon: const Icon(
                           Icons.delete_forever,
                           color: Colors.red,
                           size: 20,
@@ -254,7 +246,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             ),
           ),
 
-          // ====== NỘI DUNG ======
+          // ===== DANH SÁCH =====
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -266,7 +258,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
         ],
       ),
 
-      // ====== FAB ======
+      // ===== FAB =====
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4A00E0),
         child: const Icon(Icons.add, color: Colors.white),
@@ -278,44 +270,10 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           if (result == true) _loadDanhSach();
         },
       ),
-
-      // ====== NAVBAR ======
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (index == 0)
-            Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
-          if (index == 1) Navigator.pushReplacementNamed(context, '/hoa-don');
-          if (index == 2) Navigator.pushReplacementNamed(context, '/kho-hang');
-          if (index == 3) Navigator.pushReplacementNamed(context, '/doanh-thu');
-          if (index == 4) Navigator.pushReplacementNamed(context, '/home');
-        },
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF4A00E0),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: "Hóa Đơn",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.warehouse),
-            label: "Kho Hàng",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: "Doanh Thu",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
-        ],
-      ),
     );
   }
 
-  // ====== HỘP SỐ LƯỢNG ANIMATED ======
+  // ===== Ô THỐNG KÊ =====
   Widget _buildAnimatedBox(String title, int count, Color color) {
     return Expanded(
       child: Container(
@@ -329,14 +287,14 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           children: [
             Text(
               title,
-              style: TextStyle(
+              style: const TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 6),
             Text(
-              "$count", // ✅ hiển thị trực tiếp, không đếm
+              "$count",
               style: TextStyle(
                 color: color,
                 fontSize: 22,
@@ -349,7 +307,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     );
   }
 
-  // ====== DANH SÁCH KHO ======
+  // ===== DANH SÁCH KHO =====
   Widget _buildList(String trangThai) {
     final ds = _filteredKho.where((k) => k.trangThai == trangThai).toList();
     ds.sort(
@@ -358,7 +316,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
       ),
     );
 
-    if (ds.isEmpty) return Center(child: Text("Không có dữ liệu"));
+    if (ds.isEmpty) return const Center(child: Text("Không có dữ liệu"));
 
     return ListView.builder(
       itemCount: ds.length,
@@ -394,97 +352,109 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 28,
-                      backgroundColor: statusColor,
-                      child: Text(
-                        kho.tenKho!.substring(0, 1).toUpperCase(),
-                        style: TextStyle(color: Colors.white, fontSize: 20),
-                      ),
+                    // === Nút XÓA bên trái ===
+                    IconButton(
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      onPressed: () => _xoaKhoHang(kho.id),
                     ),
-                    SizedBox(width: 16),
+
+                    // === Nội dung giữa ===
                     Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      child: Row(
                         children: [
-                          Text(
-                            kho.tenKho ?? "",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
+                          CircleAvatar(
+                            radius: 28,
+                            backgroundColor: statusColor,
+                            child: Text(
+                              kho.tenKho!.substring(0, 1).toUpperCase(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                              ),
                             ),
                           ),
-                          if (kho.ghiChu != null && kho.ghiChu!.isNotEmpty)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 2),
-                              child: Text(
-                                kho.ghiChu!,
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontStyle: FontStyle.italic,
-                                  color: Colors.grey[600],
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  kho.tenKho ?? "",
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
                                 ),
-                              ),
+                                if (kho.ghiChu != null &&
+                                    kho.ghiChu!.isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      kho.ghiChu!,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontStyle: FontStyle.italic,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  "Ngày nhập: ${_formatDate(start)}"
+                                  "${kho.ngayXuat != null ? " | Ngày xuất: ${_formatDate(end)}" : ""}",
+                                  style: TextStyle(color: Colors.grey[700]),
+                                ),
+                                if (soNgay > 0)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Colors.blue[100],
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                    child: Text(
+                                      "$soNgay ngày trong kho",
+                                      style: TextStyle(
+                                        color: Colors.blue[800],
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                if (kho.giaTri != null)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 6),
+                                    child: Text(
+                                      "Giá trị: ${_formatCurrency(kho.giaTri)}",
+                                      style: const TextStyle(
+                                        color: Colors.deepPurple,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                              ],
                             ),
-                          SizedBox(height: 4),
-                          Text(
-                            "Ngày nhập: ${_formatDate(start)}"
-                            "${kho.ngayXuat != null ? " | Ngày xuất: ${_formatDate(end)}" : ""}",
-                            style: TextStyle(color: Colors.grey[700]),
                           ),
-                          if (soNgay > 0)
-                            Container(
-                              margin: const EdgeInsets.only(top: 6),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.blue[100],
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: Text(
-                                "$soNgay ngày trong kho",
-                                style: TextStyle(
-                                  color: Colors.blue[800],
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          if (kho.giaTri != null)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 6),
-                              child: Text(
-                                "Giá trị: ${_formatCurrency(kho.giaTri)}",
-                                style: TextStyle(
-                                  color: Colors.deepPurple,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ),
                         ],
                       ),
                     ),
-                    Column(
-                      children: [
-                        IconButton(
-                          icon: Icon(Icons.edit, color: Colors.orange),
-                          onPressed: () async {
-                            final result = await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ThemKhoHangScreen(kho: kho),
-                              ),
-                            );
-                            if (result == true) _loadDanhSach();
-                          },
-                        ),
-                        IconButton(
-                          icon: Icon(Icons.delete, color: Colors.red),
-                          onPressed: () => _xoaKhoHang(kho.id),
-                        ),
-                      ],
-                    ),
+
+                    // === Nút SỬA bên phải (chỉ khi chưa xuất) ===
+                    if (kho.trangThai != "Đã xuất")
+                      IconButton(
+                        icon: const Icon(Icons.edit, color: Colors.orange),
+                        onPressed: () async {
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => ThemKhoHangScreen(kho: kho),
+                            ),
+                          );
+                          if (result == true) _loadDanhSach();
+                        },
+                      ),
                   ],
                 ),
               ),

@@ -9,6 +9,8 @@ import '../models/khohang.dart';
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
 import '../api_config.dart';
+import '../api_config.dart'; // Đảm bảo đường dẫn đúng
+import 'package:flutter/foundation.dart';
 
 class ApiService {
   // --------------------- BASE URL ---------------------
@@ -534,5 +536,34 @@ class ApiService {
     required String newPassword,
   }) async {
     return await doiMatKhau(oldPassword: oldPassword, newPassword: newPassword);
+  }
+
+  // 🧱 Thêm hoặc sửa kho hàng qua JSON
+  static Future<bool> themHoacSuaKhoHangJson(Map<String, dynamic> data) async {
+    try {
+      // ✅ Dùng host động từ ApiConfig
+      final url = Uri.parse('${ApiConfig.apiBase}/KhoHang/ThemHoacSua');
+      debugPrint('📡 Gửi yêu cầu tới: $url');
+      debugPrint('📦 Dữ liệu gửi đi: ${jsonEncode(data)}');
+
+      // ✅ Gửi POST request
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(data),
+      );
+
+      // ✅ Kiểm tra kết quả trả về
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        debugPrint('✅ Thêm/Sửa kho hàng thành công');
+        return true;
+      } else {
+        debugPrint('❌ Lỗi API (${response.statusCode}): ${response.body}');
+        return false;
+      }
+    } catch (e) {
+      debugPrint('🔥 Lỗi khi gọi API ThêmHoặcSửaKhoHang: $e');
+      return false;
+    }
   }
 }

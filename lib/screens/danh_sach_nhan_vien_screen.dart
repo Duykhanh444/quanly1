@@ -266,13 +266,20 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                           elevation: 1.5,
                           child: InkWell(
                             borderRadius: BorderRadius.circular(14),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    ChiTietNhanVienScreen(nhanVienId: nv.id),
-                              ),
-                            ),
+                            onTap: () async {
+                              final reloaded = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) =>
+                                      ChiTietNhanVienScreen(nhanVienId: nv.id),
+                                ),
+                              );
+
+                              if (reloaded == true) {
+                                _loadDanhSach();
+                              }
+                            },
+
                             child: Padding(
                               padding: const EdgeInsets.symmetric(
                                 vertical: 10,
