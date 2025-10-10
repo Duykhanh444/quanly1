@@ -1,7 +1,12 @@
 // lib/screens/chi_tiet_hoa_don_screen.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
@@ -41,7 +46,112 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
 
   bool get _daThanhToan => hd.trangThai == "Đã thanh toán";
 
-  // -------------------- Lưu hóa đơn --------------------
+  // ===================== In và chia sẻ PDF =====================
+  Future<Uint8List> _generateHoaDonPdf() async {
+    final pdf = pw.Document();
+    final font = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/DejaVuSans.ttf'),
+    );
+    final fontBold = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/DejaVuSans-Bold.ttf'),
+    );
+
+    // ✅ Tạo link QR VietQR
+    final qrUrl =
+        "https://img.vietqr.io/image/MB-9704229999-compact2.png?amount=${hd.tongTien}&addInfo=Thanh%20toan%20HD%20${hd.maHoaDon}";
+
+    final qrImage = (await networkImage(qrUrl));
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a5,
+        build: (context) {
+          return pw.Center(
+            child: pw.Column(
+              crossAxisAlignment: pw.CrossAxisAlignment.center,
+              children: [
+                pw.Text(
+                  "HÓA ĐƠN BÁN HÀNG",
+                  style: pw.TextStyle(font: fontBold, fontSize: 20),
+                ),
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  "Mã hóa đơn: ${hd.maHoaDon}",
+                  style: pw.TextStyle(font: font),
+                ),
+                pw.Text(
+                  "Ngày lập: ${DateFormat('dd/MM/yyyy HH:mm').format(hd.ngayLap!)}",
+                  style: pw.TextStyle(font: font),
+                ),
+                pw.Text(
+                  "Phương thức: ${hd.phuongThuc}",
+                  style: pw.TextStyle(font: font),
+                ),
+                pw.SizedBox(height: 10),
+
+                pw.Table.fromTextArray(
+                  headers: ["Tên hàng", "SL", "Giá", "Thành tiền"],
+                  headerStyle: pw.TextStyle(font: fontBold),
+                  cellStyle: pw.TextStyle(font: font),
+                  headerDecoration: const pw.BoxDecoration(
+                    color: PdfColors.grey300,
+                  ),
+                  data: hd.items.map((e) {
+                    return [
+                      e.tenHang,
+                      "${e.soLuong}",
+                      formatNumber(e.giaTien),
+                      formatNumber(e.thanhTien()),
+                    ];
+                  }).toList(),
+                ),
+
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  "Tổng tiền: ${formatNumber(hd.tongTien)} VND",
+                  style: pw.TextStyle(font: fontBold, fontSize: 14),
+                ),
+                pw.SizedBox(height: 15),
+
+                // ✅ QR VietQR
+                pw.Image(qrImage, width: 140, height: 140),
+                pw.SizedBox(height: 5),
+                pw.Text(
+                  "Quét mã VietQR để thanh toán",
+                  style: pw.TextStyle(font: font, fontSize: 10),
+                ),
+
+                pw.SizedBox(height: 10),
+                pw.Text(
+                  "Xin cảm ơn quý khách!",
+                  style: pw.TextStyle(font: fontBold, fontSize: 12),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+
+    return pdf.save();
+  }
+
+  Future<void> _inHoaDonPdf() async {
+    final bytes = await _generateHoaDonPdf();
+    await Printing.layoutPdf(onLayout: (format) async => bytes);
+  }
+
+  Future<void> _shareHoaDonPdf() async {
+    final bytes = await _generateHoaDonPdf();
+    final file = XFile.fromData(
+      bytes,
+      name: "HoaDon_${hd.maHoaDon}.pdf",
+      mimeType: "application/pdf",
+    );
+    await Share.shareXFiles([file], text: "Hóa đơn ${hd.maHoaDon}");
+  }
+
+  // ===================== Lưu hóa đơn =====================
   Future<void> _luuHoaDonVaThoat() async {
     if (hd.loaiHoaDon == null || hd.loaiHoaDon!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -58,7 +168,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
 
     hd.tinhTongTien();
     final result = await ApiService.themHoacSuaHoaDon(hd);
-
     if (result != null) {
       Navigator.pop(context, result);
       ScaffoldMessenger.of(
@@ -71,7 +180,7 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     }
   }
 
-  // -------------------- Thanh toán --------------------
+  // ===================== Thanh toán =====================
   Future<void> _thanhToan() async {
     if (hd.phuongThuc == null || hd.phuongThuc!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -108,7 +217,7 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     );
   }
 
-  // -------------------- Xóa hóa đơn --------------------
+  // ===================== Xóa hóa đơn =====================
   Future<void> _xoaHoaDon() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -128,7 +237,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
         ],
       ),
     );
-
     if (confirm == true) {
       final deleted = await ApiService.xoaHoaDon(hd.id);
       if (deleted) {
@@ -144,166 +252,23 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     }
   }
 
-  // -------------------- Thêm / Cập nhật / Xóa mặt hàng --------------------
-  void _themMatHang() async {
-    final tenController = TextEditingController();
-    final soLuongController = TextEditingController(text: "1");
-    final giaController = TextEditingController(text: "0");
-
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("Thêm mặt hàng"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: tenController,
-              decoration: const InputDecoration(labelText: "Tên hàng"),
-            ),
-            TextField(
-              controller: soLuongController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: "Số lượng"),
-            ),
-            TextField(
-              controller: giaController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [ThousandsFormatter()],
-              decoration: const InputDecoration(labelText: "Giá tiền (VND)"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Hủy"),
-          ),
-          TextButton(
-            onPressed: () {
-              if (tenController.text.trim().isEmpty) return;
-              Navigator.pop(ctx, {
-                "ten": tenController.text.trim(),
-                "soLuong": int.tryParse(soLuongController.text) ?? 1,
-                "gia": parseNumber(giaController.text),
-              });
-            },
-            child: const Text("Thêm"),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        hd.items.add(
-          HoaDonItem(
-            id: 0,
-            tenHang: result["ten"],
-            soLuong: result["soLuong"],
-            giaTien: result["gia"],
-          ),
-        );
-        hd.tinhTongTien();
-      });
-      if (_daThanhToan) await ApiService.themHoacSuaHoaDon(hd);
-    }
-  }
-
-  void _capNhatMatHang(int index) async {
-    final mh = hd.items[index];
-    final tenController = TextEditingController(text: mh.tenHang);
-    final soLuongController = TextEditingController(
-      text: mh.soLuong.toString(),
-    );
-    final giaController = TextEditingController(text: formatNumber(mh.giaTien));
-
-    final result = await showDialog<Map<String, dynamic>>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text("Cập nhật ${mh.tenHang}"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: tenController,
-              decoration: const InputDecoration(labelText: "Tên hàng"),
-            ),
-            TextField(
-              controller: soLuongController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              decoration: const InputDecoration(labelText: "Số lượng"),
-            ),
-            TextField(
-              controller: giaController,
-              keyboardType: TextInputType.number,
-              inputFormatters: [ThousandsFormatter()],
-              decoration: const InputDecoration(labelText: "Giá tiền (VND)"),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text("Hủy"),
-          ),
-          TextButton(
-            onPressed: () {
-              if (tenController.text.trim().isEmpty) return;
-              Navigator.pop(ctx, {
-                "ten": tenController.text.trim(),
-                "soLuong": int.tryParse(soLuongController.text) ?? 1,
-                "gia": parseNumber(giaController.text),
-              });
-            },
-            child: const Text("Cập nhật"),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        mh.tenHang = result["ten"];
-        mh.soLuong = result["soLuong"];
-        mh.giaTien = result["gia"];
-        hd.tinhTongTien();
-      });
-      if (_daThanhToan) await ApiService.themHoacSuaHoaDon(hd);
-    }
-  }
-
-  void _xoaMatHang(int index) async {
-    setState(() {
-      hd.items.removeAt(index);
-      hd.tinhTongTien();
-    });
-    if (_daThanhToan) await ApiService.themHoacSuaHoaDon(hd);
-  }
-
-  // -------------------- Chọn ngày lập --------------------
-  Future<void> _chonNgayLap() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: hd.ngayLap ?? DateTime.now(),
-      firstDate: DateTime(2000),
-      lastDate: DateTime(2100),
-    );
-    if (picked != null) {
-      setState(() => hd.ngayLap = picked);
-    }
-  }
-
-  // -------------------- UI --------------------
+  // ===================== UI =====================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Chi tiết hóa đơn"),
         actions: [
-          if (!_daThanhToan)
+          if (_daThanhToan) ...[
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf, color: Colors.blue),
+              onPressed: _inHoaDonPdf,
+            ),
+            IconButton(
+              icon: const Icon(Icons.share, color: Colors.green),
+              onPressed: _shareHoaDonPdf,
+            ),
+          ] else
             IconButton(
               icon: const Icon(Icons.delete, color: Colors.red),
               onPressed: _xoaHoaDon,
@@ -316,24 +281,21 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _buildInfoCard("Mã hóa đơn", hd.maHoaDon),
-            _buildDateCard(
-              "Ngày lập",
-              hd.ngayLap!,
-              _chonNgayLap,
-            ), // ✅ thêm chỗ này
+            _buildDateCard("Ngày lập", hd.ngayLap!, _chonNgayLap),
             _buildDropdownCard(
               "Loại hóa đơn",
               hd.loaiHoaDon,
               ["Xuất", "Nhập"],
               (val) => setState(() => hd.loaiHoaDon = val),
+              !_daThanhToan,
             ),
             _buildDropdownCard(
               "Phương thức thanh toán",
               hd.phuongThuc,
               ["Tiền mặt", "Chuyển khoản"],
               (val) => setState(() => hd.phuongThuc = val),
+              !_daThanhToan,
             ),
-
             const SizedBox(height: 12),
             ...hd.items.asMap().entries.map((entry) {
               final i = entry.key;
@@ -366,7 +328,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
                 ),
               );
             }),
-
             const SizedBox(height: 12),
             _buildStatusCard(
               "Trạng thái",
@@ -378,7 +339,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
               "${formatNumber(hd.tongTien)} VND",
               Colors.teal,
             ),
-
             if (!_daThanhToan) ...[
               const SizedBox(height: 12),
               ElevatedButton(
@@ -403,6 +363,17 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
         ),
       ),
     );
+  }
+
+  // ===================== Helper UI =====================
+  Future<void> _chonNgayLap() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: hd.ngayLap ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) setState(() => hd.ngayLap = picked);
   }
 
   ButtonStyle _buttonStyle(Color bg, Color fg) => ElevatedButton.styleFrom(
@@ -492,6 +463,7 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     String? currentValue,
     List<String> options,
     ValueChanged<String> onChanged,
+    bool enabled,
   ) => Container(
     margin: const EdgeInsets.only(bottom: 8),
     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -504,39 +476,211 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-        SizedBox(
-          width: 150,
-          child: DropdownButton<String>(
-            isExpanded: true,
-            value: currentValue?.isEmpty ?? true ? null : currentValue,
-            hint: const Text("Chưa chọn"),
-            underline: const SizedBox(),
-            items: options
-                .map((opt) => DropdownMenuItem(value: opt, child: Text(opt)))
-                .toList(),
-            onChanged: (val) {
-              if (val != null) onChanged(val);
-            },
-          ),
-        ),
+        enabled
+            ? SizedBox(
+                width: 150,
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: currentValue?.isEmpty ?? true ? null : currentValue,
+                  hint: const Text("Chưa chọn"),
+                  underline: const SizedBox(),
+                  items: options
+                      .map(
+                        (opt) => DropdownMenuItem(value: opt, child: Text(opt)),
+                      )
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) onChanged(val);
+                  },
+                ),
+              )
+            : Text(
+                currentValue ?? "",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
       ],
     ),
   );
+
+  // ===================== CRUD Mặt hàng =====================
+  void _themMatHang() async {
+    final tenController = TextEditingController();
+    final soLuongController = TextEditingController(text: "1");
+    final giaController = TextEditingController(text: "0");
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Thêm mặt hàng"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: tenController,
+              decoration: const InputDecoration(labelText: "Tên hàng"),
+            ),
+            TextField(
+              controller: soLuongController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: "Số lượng"),
+            ),
+            TextField(
+              controller: giaController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [ThousandsFormatter()],
+              decoration: const InputDecoration(labelText: "Giá tiền (VND)"),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Hủy"),
+          ),
+          TextButton(
+            onPressed: () {
+              if (tenController.text.trim().isEmpty) return;
+              Navigator.pop(ctx, {
+                "ten": tenController.text.trim(),
+                "soLuong": int.tryParse(soLuongController.text) ?? 1,
+                "gia": parseNumber(giaController.text),
+              });
+            },
+            child: const Text("Thêm"),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        hd.items.add(
+          HoaDonItem(
+            tenHang: result["ten"],
+            soLuong: result["soLuong"],
+            giaTien: result["gia"],
+          ),
+        );
+        hd.tinhTongTien();
+      });
+    }
+  }
+
+  void _capNhatMatHang(int index) async {
+    final item = hd.items[index];
+    final tenController = TextEditingController(text: item.tenHang);
+    final soLuongController = TextEditingController(
+      text: item.soLuong.toString(),
+    );
+    final giaController = TextEditingController(
+      text: formatNumber(item.giaTien),
+    );
+
+    final result = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Cập nhật mặt hàng"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: tenController,
+              decoration: const InputDecoration(labelText: "Tên hàng"),
+            ),
+            TextField(
+              controller: soLuongController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              decoration: const InputDecoration(labelText: "Số lượng"),
+            ),
+            TextField(
+              controller: giaController,
+              keyboardType: TextInputType.number,
+              inputFormatters: [ThousandsFormatter()],
+              decoration: const InputDecoration(labelText: "Giá tiền (VND)"),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Hủy"),
+          ),
+          TextButton(
+            onPressed: () {
+              if (tenController.text.trim().isEmpty) return;
+              Navigator.pop(ctx, {
+                "ten": tenController.text.trim(),
+                "soLuong": int.tryParse(soLuongController.text) ?? 1,
+                "gia": parseNumber(giaController.text),
+              });
+            },
+            child: const Text("Lưu"),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null) {
+      setState(() {
+        hd.items[index]
+          ..tenHang = result["ten"]
+          ..soLuong = result["soLuong"]
+          ..giaTien = result["gia"];
+        hd.tinhTongTien();
+      });
+    }
+  }
+
+  void _xoaMatHang(int index) async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("Xóa mặt hàng"),
+        content: Text(
+          "Bạn có chắc muốn xóa '${hd.items[index].tenHang}' không?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text("Hủy"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text("Xóa"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      setState(() {
+        hd.items.removeAt(index);
+        hd.tinhTongTien();
+      });
+    }
+  }
 }
 
-// -------------------- Formatter --------------------
+// ===================== Thousands Formatter =====================
 class ThousandsFormatter extends TextInputFormatter {
   @override
   TextEditingValue formatEditUpdate(
     TextEditingValue oldValue,
     TextEditingValue newValue,
   ) {
-    String digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
-    if (digits.isEmpty) return newValue.copyWith(text: '');
-    final formatted = NumberFormat("#,###", "vi_VN").format(int.parse(digits));
+    final digits = newValue.text.replaceAll(RegExp(r'[^\d]'), '');
+    if (digits.isEmpty) {
+      return newValue.copyWith(text: '');
+    }
+
+    final number = int.parse(digits);
+    final newText = NumberFormat("#,###", "vi_VN").format(number);
     return TextEditingValue(
-      text: formatted,
-      selection: TextSelection.collapsed(offset: formatted.length),
+      text: newText,
+      selection: TextSelection.collapsed(offset: newText.length),
     );
   }
 }

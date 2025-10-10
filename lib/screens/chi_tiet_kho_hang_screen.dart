@@ -13,7 +13,8 @@ import '../models/khohang.dart';
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
 import '../services/api_service.dart';
-import 'bill_screen.dart';
+import 'kho_hang_bill_screen.dart'; // <-- import màn hình phiếu xuất kho
+// note: nếu kho_hang_bill_screen.dart ở chỗ khác, chỉnh đường dẫn tương ứng
 
 class ChiTietKhoHangScreen extends StatefulWidget {
   final KhoHang kho;
@@ -48,7 +49,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
   String _formatCurrency(double? value) {
     final formatter = NumberFormat.currency(
       locale: "vi_VN",
-      symbol: "đ",
+      symbol: "VND",
       decimalDigits: 0,
     );
     return formatter.format(value ?? 0);
@@ -60,16 +61,21 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     return ngayKetThuc.difference(start).inDays;
   }
 
+  /// Hàm tạo QR giống y như lúc thêm kho hàng
   String _taoDuLieuQR() {
     final kho = widget.kho;
-    return "id=${kho.id}"
-        "&tenKho=${Uri.encodeComponent(kho.tenKho ?? '')}"
-        "&giaTri=${kho.giaTri ?? 0}"
-        "&trangThai=${Uri.encodeComponent(kho.trangThai ?? '')}"
-        "&ngayNhap=${kho.ngayNhap?.toIso8601String() ?? ''}"
-        "&ngayXuat=${kho.ngayXuat?.toIso8601String() ?? ''}";
+    final dataQR = Uri(
+      queryParameters: {
+        'tenHang': kho.tenKho ?? '',
+        'giaTri': (kho.giaTri ?? 0).toString(),
+        'ghiChu': kho.ghiChu ?? '',
+        'soLuong': '1',
+      },
+    ).query;
+    return dataQR;
   }
 
+  /// Tạo file PDF (giữ QR giống nhau) — giữ nguyên nếu cần
   Future<Uint8List> _taoFilePdf() async {
     final kho = widget.kho;
     final qrData = _taoDuLieuQR();
@@ -78,8 +84,9 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     final roboto = pw.Font.ttf(fontData);
 
     final qrPainter = QrPainter(
-      data: Uri.encodeFull(qrData),
+      data: qrData,
       version: QrVersions.auto,
+      gapless: true,
     );
     final ui.Image qrImage = await qrPainter.toImage(300);
     final qrBytes = await qrImage.toByteData(format: ui.ImageByteFormat.png);
@@ -87,7 +94,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
 
     final barcode = Barcode.code128();
     final barcodeSvg = barcode.toSvg(
-      kho.id.toString(),
+      kho.tenKho ?? '',
       width: 300,
       height: 80,
       drawText: true,
@@ -101,6 +108,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
           child: pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
+              // logo (nếu muốn hiển thị logo ở đây, có thể load giống cách ở KhoHangBillScreen)
               pw.Text(
                 "PHIẾU KHO HÀNG",
                 style: pw.TextStyle(
@@ -111,7 +119,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
               ),
               pw.SizedBox(height: 20),
               pw.Text(
-                "Tên kho: ${kho.tenKho ?? ''}",
+                "Tên hàng: ${kho.tenKho ?? ''}",
                 style: pw.TextStyle(font: roboto),
               ),
               pw.Text(
@@ -119,7 +127,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
                 style: pw.TextStyle(font: roboto),
               ),
               pw.Text(
-                "Ngày nhập: ${_formatDate(kho.ngayNhap)}",
+                "Ghi chú: ${kho.ghiChu ?? ''}",
                 style: pw.TextStyle(font: roboto),
               ),
               pw.Text(
@@ -135,6 +143,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
         ),
       ),
     );
+
     return pdf.save();
   }
 
@@ -163,6 +172,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     }
   }
 
+  /// Chọn phương thức thanh toán -> mở KhoHangBillScreen
   Future<void> _chonPhuongThucThanhToan(BuildContext context) async {
     final phuongThuc = await showDialog<String>(
       context: context,
@@ -185,9 +195,85 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
         ),
       ),
     );
-    if (phuongThuc != null) {
-      // xử lý thanh toán ở đây
-    }
+
+    if (phuongThuc == null) return;
+
+    // Tạo một đối tượng HoaDon từ KhoHang để gửi sang KhoHangBillScreen
+    final hoaDon = HoaDon(
+      maHoaDon: "PXK${DateTime.now().millisecondsSinceEpoch}",
+      ngayLap: DateTime.now(),
+      tongTien: (widget.kho.giaTri ?? 0).toInt(),
+      loaiHoaDon: "Xuất kho",
+      items: [
+        HoaDonItem(
+          tenHang: widget.kho.tenKho ?? '',
+          soLuong: 1,
+          giaTien: (widget.kho.giaTri ?? 0).toInt(),
+        ),
+      ],
+    );
+
+    // Mở màn hình KhoHangBillScreen với animation slide + fade
+    await Navigator.of(context).push(
+      PageRouteBuilder(
+        transitionDuration: const Duration(milliseconds: 400),
+        pageBuilder: (context, animation, secondaryAnimation) => KhoHangBillScreen(
+          hoaDon: hoaDon,
+          phuongThuc: phuongThuc,
+          onConfirmPayment: () async {
+            // Khi xác nhận thanh toán ở màn hình phiếu xuất kho:
+            // cập nhật trạng thái kho và gọi API (ví dụ đổi trạng thái -> "Đã xuất")
+            try {
+              final updated = {
+                "id": widget.kho.id,
+                "tenKho": widget.kho.tenKho,
+                "giaTri": widget.kho.giaTri,
+                "ghiChu": widget.kho.ghiChu,
+                "ngayNhap": widget.kho.ngayNhap?.toIso8601String(),
+                "ngayXuat": DateTime.now().toIso8601String(),
+                "trangThai": "Đã xuất",
+              };
+              final ok = await ApiService.themHoacSuaKhoHangJson(updated);
+              if (ok) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("✅ Đã xuất kho và cập nhật trạng thái."),
+                  ),
+                );
+                setState(() {
+                  widget.kho.trangThai = "Đã xuất";
+                  widget.kho.ngayXuat = DateTime.now();
+                });
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("⚠️ Cập nhật trạng thái thất bại."),
+                  ),
+                );
+              }
+            } catch (e) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text("Lỗi khi cập nhật kho: $e")),
+              );
+            }
+          },
+        ),
+        transitionsBuilder: (context, anim, secondary, child) {
+          final offsetAnim = Tween<Offset>(
+            begin: const Offset(0.2, 0),
+            end: Offset.zero,
+          ).animate(CurvedAnimation(parent: anim, curve: Curves.easeInOut));
+          final fadeAnim = CurvedAnimation(
+            parent: anim,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(
+            opacity: fadeAnim,
+            child: SlideTransition(position: offsetAnim, child: child),
+          );
+        },
+      ),
+    );
   }
 
   @override
@@ -196,7 +282,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     final soNgay = _tinhSoNgay(kho.ngayNhap, kho.ngayXuat);
 
     final infoCards = [
-      ("Tên kho", kho.tenKho ?? "", Icons.home_rounded, Colors.deepPurple),
+      ("Tên hàng", kho.tenKho ?? "", Icons.inventory, Colors.deepPurple),
       (
         "Giá trị",
         _formatCurrency(kho.giaTri),
@@ -284,7 +370,7 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
                   const SizedBox(height: 16),
                   BarcodeWidget(
                     barcode: Barcode.code128(),
-                    data: kho.id.toString(),
+                    data: kho.tenKho ?? '',
                     width: 250,
                     height: 80,
                     drawText: true,

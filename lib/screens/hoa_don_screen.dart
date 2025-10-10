@@ -4,6 +4,7 @@ import '../models/hoadon.dart';
 import '../services/api_service.dart';
 import 'chi_tiet_hoa_don_screen.dart';
 import '../main.dart';
+import 'quet_ma_screen.dart'; // ✅ thêm dòng này
 
 class HoaDonScreen extends StatefulWidget {
   const HoaDonScreen({super.key});
@@ -333,6 +334,46 @@ class _HoaDonScreenState extends State<HoaDonScreen>
                     ),
                     Row(
                       children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.qr_code_scanner,
+                            color: Colors.white,
+                          ),
+                          onPressed: () async {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const QuetMaScreen(),
+                              ),
+                            );
+
+                            if (result != null && result is String) {
+                              // 📦 Gọi API tạo hóa đơn theo mã sản phẩm
+                              final hoaDon = await ApiService.taoHoaDonTheoMa(
+                                result,
+                              );
+
+                              if (hoaDon != null) {
+                                await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) =>
+                                        ChiTietHoaDonScreen(hd: hoaDon),
+                                  ),
+                                );
+                                _loadDanhSach(); // 🔄 tự reload danh sách sau khi quay lại
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text(
+                                      "❌ Không tìm thấy sản phẩm hoặc lỗi khi tạo hóa đơn",
+                                    ),
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                        ),
                         IconButton(
                           icon: Icon(
                             _isSearching ? Icons.close : Icons.search,

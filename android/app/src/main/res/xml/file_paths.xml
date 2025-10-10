@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- ✅ Cho phép truy cập thư mục riêng của app -->
+    <external-files-path
+        name="external_files"
+        path="." />
+
+    <!-- ✅ Cho phép đọc/ghi cache (ảnh QR, PDF tạm) -->
+    <cache-path
+        name="cache"
+        path="." />
+
+    <!-- ✅ Cho phép truy cập thư mục Download nếu lưu QR ở đó -->
+    <external-path
+        name="download"
+        path="Download/" />
+</paths>

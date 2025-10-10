@@ -10,7 +10,6 @@ import 'package:pdf/pdf.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/khohang.dart';
 import '../services/api_service.dart';
-import 'qr_scan_screen.dart';
 
 class ThemKhoHangScreen extends StatefulWidget {
   final KhoHang? kho;
@@ -62,7 +61,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
   Future<void> _xuatPDF(String data, String tenHang) async {
     final pdf = pw.Document();
 
-    // Tạo QR image từ dữ liệu
     final qrImage = await QrPainter(
       data: data,
       version: QrVersions.auto,
@@ -70,7 +68,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
     ).toImageData(300);
     final qrBytes = qrImage!.buffer.asUint8List();
 
-    // Font
     final roboto = await PdfGoogleFonts.robotoRegular();
     final robotoBold = await PdfGoogleFonts.robotoBold();
 
@@ -115,53 +112,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
     await file.writeAsBytes(await pdf.save());
 
     await Printing.sharePdf(bytes: await pdf.save(), filename: "$tenHang.pdf");
-  }
-
-  // 📷 Quét mã QR và thêm hàng
-  Future<void> _quetQR() async {
-    final result = await Navigator.push(
-      context,
-      MaterialPageRoute(builder: (_) => const QRScanScreen()),
-    );
-
-    if (result != null && result is String) {
-      try {
-        final decoded = Uri.splitQueryString(result);
-
-        final tenHang = decoded['tenHang'] ?? '';
-        final giaTri = double.tryParse(decoded['giaTri'] ?? '0') ?? 0;
-        final ghiChu = decoded['ghiChu'] ?? '';
-
-        // Gán lên form
-        setState(() {
-          _tenController.text = tenHang;
-          _giaTriController.text = _currencyFormat.format(giaTri);
-          _ghiChuController.text = ghiChu;
-        });
-
-        // Tạo đối tượng kho mới
-        final khoMoi = KhoHang(
-          id: 0,
-          tenKho: tenHang,
-          ghiChu: ghiChu,
-          giaTri: giaTri,
-          ngayNhap: DateTime.now(),
-          trangThai: "Hoạt động",
-        );
-
-        await ApiService.themHoacSuaKhoHang(khoMoi);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("✅ Đã quét mã và thêm hàng mới!")),
-        );
-
-        Navigator.pop(context, true);
-      } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("❌ Lỗi khi đọc mã QR: $e")));
-      }
-    }
   }
 
   // 🔹 Tạo QR và xuất PDF
@@ -255,7 +205,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                 key: _formKey,
                 child: ListView(
                   children: [
-                    // 🔹 Tên kho hàng
                     TextFormField(
                       controller: _tenController,
                       decoration: const InputDecoration(
@@ -267,7 +216,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // 🔹 Giá trị kho hàng
                     TextFormField(
                       controller: _giaTriController,
                       decoration: const InputDecoration(
@@ -302,7 +250,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // 🔹 Ghi chú
                     TextFormField(
                       controller: _ghiChuController,
                       decoration: const InputDecoration(
@@ -312,7 +259,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // 🔹 Ngày nhập
                     ListTile(
                       leading: const Icon(
                         Icons.calendar_month,
@@ -337,7 +283,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                       },
                     ),
 
-                    // 🔹 Ngày xuất
                     ListTile(
                       leading: const Icon(
                         Icons.local_shipping,
@@ -364,7 +309,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
 
                     const SizedBox(height: 24),
 
-                    // 🔘 Nút lưu
                     ElevatedButton.icon(
                       icon: const Icon(Icons.save, color: Colors.white),
                       label: const Text(
@@ -407,50 +351,26 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
 
                     const SizedBox(height: 20),
 
-                    // 🔘 Nút tạo/ quét QR
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        ElevatedButton.icon(
-                          icon: const Icon(Icons.qr_code, color: Colors.white),
-                          label: const Text(
-                            "Tạo QR",
-                            style: TextStyle(color: Colors.white),
-                          ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF00C853),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _taoQR,
+                    // 🔘 Nút tạo QR (đã bỏ quét QR)
+                    Center(
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.qr_code, color: Colors.white),
+                        label: const Text(
+                          "Tạo Mã QR",
+                          style: TextStyle(color: Colors.white),
                         ),
-                        ElevatedButton.icon(
-                          icon: const Icon(
-                            Icons.qr_code_scanner,
-                            color: Colors.white,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF00C853),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 30,
+                            vertical: 14,
                           ),
-                          label: const Text(
-                            "Quét QR",
-                            style: TextStyle(color: Colors.white),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFFBA68C8),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 20,
-                              vertical: 14,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                          ),
-                          onPressed: _quetQR,
                         ),
-                      ],
+                        onPressed: _taoQR,
+                      ),
                     ),
                   ],
                 ),

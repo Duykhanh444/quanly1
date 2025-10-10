@@ -1,8 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart' as scanner;
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
 import '../services/api_service.dart';
+import 'package:qr_code_tools/qr_code_tools.dart';
+import 'package:image_picker/image_picker.dart';
 
 class QRScanScreen extends StatefulWidget {
   const QRScanScreen({super.key});
@@ -40,7 +42,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
 
   /// 📦 Xử lý khi phát hiện mã
   Future<void> _xuLyMa(String value) async {
-    if (_daQuet.contains(value)) return; // bỏ qua mã trùng
+    if (_daQuet.contains(value)) return; // tránh quét trùng
     _daQuet.add(value);
 
     final decoded = _phanTichQR(value);
@@ -64,13 +66,30 @@ class _QRScanScreenState extends State<QRScanScreen> {
 
     setState(() => _khoTam.add(kho));
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text("📥 Quét được: $tenKho (${giaTri.toStringAsFixed(0)}đ)"),
-        backgroundColor: Colors.teal,
-        duration: const Duration(seconds: 1),
-      ),
-    );
+    // 🧠 Gọi API ngay sau khi quét xong (tự tạo kho)
+    try {
+      final ok = await ApiService.themHoacSuaKhoHangJson(kho);
+      if (ok) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "✅ Tạo kho mới: $tenKho (${giaTri.toStringAsFixed(0)}đ)",
+            ),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        throw Exception("Lỗi API");
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("⚠️ Không thể tạo kho: $e"),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+    }
   }
 
   /// 🚀 Gửi tất cả kho đã quét lên API
@@ -100,6 +119,34 @@ class _QRScanScreenState extends State<QRScanScreen> {
     });
   }
 
+  /// 🖼️ Quét mã QR từ ảnh tải lên
+  Future<void> _quetTuAnh() async {
+    final picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image == null) return;
+
+    try {
+      // ✅ Giải mã QR từ ảnh
+      final value = await QrCodeToolsPlugin.decodeFrom(image.path);
+
+      if (value != null && value.isNotEmpty) {
+        await _xuLyMa(value);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("📸 Quét được từ ảnh: $value")));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("❌ Không phát hiện mã QR trong ảnh")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("⚠️ Lỗi khi quét ảnh: $e")));
+    }
+  }
+
   // =================== GIAO DIỆN ===================
   @override
   Widget build(BuildContext context) {
@@ -108,6 +155,11 @@ class _QRScanScreenState extends State<QRScanScreen> {
         title: const Text("📦 Quét mã để thêm nhiều kho hàng"),
         backgroundColor: Colors.teal,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.image),
+            tooltip: "Quét từ ảnh",
+            onPressed: _quetTuAnh,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: "Làm mới",
@@ -150,7 +202,7 @@ class _QRScanScreenState extends State<QRScanScreen> {
             right: 0,
             child: Center(
               child: Text(
-                '➡️ Di chuyển camera qua các mã để quét liên tục',
+                '➡️ Di chuyển camera qua mã hoặc chọn ảnh QR để quét',
                 style: TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,

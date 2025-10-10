@@ -1,15 +1,16 @@
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:pdf/pdf.dart';
 import 'package:printing/printing.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:http/http.dart' as http;
 
 import '../models/hoadon.dart';
-import '../utils/bill_config.dart';
 import '../widgets/vietqr_network_image.dart';
+import '../utils/bill_config.dart';
 
 class BillScreen extends StatefulWidget {
   final HoaDon hoaDon;
@@ -17,11 +18,11 @@ class BillScreen extends StatefulWidget {
   final VoidCallback? onConfirmPayment;
 
   const BillScreen({
-    Key? key,
+    super.key,
     required this.hoaDon,
     required this.phuongThuc,
     this.onConfirmPayment,
-  }) : super(key: key);
+  });
 
   @override
   State<BillScreen> createState() => _BillScreenState();
@@ -35,44 +36,30 @@ class _BillScreenState extends State<BillScreen> {
   final _accountNameController = TextEditingController();
   final _amountController = TextEditingController();
 
-  // ✅ Shop info
   final _shopNameController = TextEditingController();
   final _shopAddressController = TextEditingController();
   final _shopPhoneController = TextEditingController();
+
+  final _bankList = ['ACB', 'MBB', 'VCB', 'TCB', 'BIDV', 'VPB'];
+
+  bool get isChuyenKhoan => widget.phuongThuc.toLowerCase().contains('chuyển');
 
   @override
   void initState() {
     super.initState();
     _hoaDon = widget.hoaDon;
     _amountController.text = _hoaDon.tongTien.toString();
-    _loadSavedDefaults();
-
-    if (_hoaDon.supplierBankName != null) _bankName = _hoaDon.supplierBankName;
-    if (_hoaDon.supplierAccount != null) {
-      _accountController.text = _hoaDon.supplierAccount!;
-    }
-    if (_hoaDon.supplierAccountName != null) {
-      _accountNameController.text = _hoaDon.supplierAccountName!;
-    }
-
-    if (_bankName == null ||
-        !BillConfig.bankNameToBin.keys
-            .map((e) => e.toUpperCase())
-            .contains(_bankName!.toUpperCase())) {
-      _bankName = BillConfig.bankNameToBin.keys.first.toUpperCase();
-    } else {
-      _bankName = _bankName!.toUpperCase();
-    }
+    _loadDefaults();
   }
 
-  Future<void> _loadSavedDefaults() async {
+  Future<void> _loadDefaults() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
-      _bankName = prefs.getString('defaultBank')?.toUpperCase() ?? _bankName;
+      _bankName = prefs.getString('defaultBank') ?? 'ACB';
       _accountController.text =
-          prefs.getString('defaultAccount') ?? _accountController.text;
+          prefs.getString('defaultAccount') ?? BillConfig.shopBankAccount;
       _accountNameController.text =
-          prefs.getString('defaultAccountName') ?? _accountNameController.text;
+          prefs.getString('defaultAccountName') ?? BillConfig.shopAccountName;
 
       _shopNameController.text =
           prefs.getString('shopName') ?? BillConfig.shopName;
@@ -83,45 +70,45 @@ class _BillScreenState extends State<BillScreen> {
     });
   }
 
-  Future<void> _saveShopInfo() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('shopName', _shopNameController.text);
-    await prefs.setString('shopAddress', _shopAddressController.text);
-    await prefs.setString('shopPhone', _shopPhoneController.text);
-  }
-
-  Future<void> _saveDefaults() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('defaultBank', _bankName ?? '');
-    await prefs.setString('defaultAccount', _accountController.text);
-    await prefs.setString('defaultAccountName', _accountNameController.text);
-  }
-
-  bool get isChuyenKhoan => widget.phuongThuc.toLowerCase().contains('chuyển');
-  bool get isTienMat => widget.phuongThuc.toLowerCase().contains('mặt');
-
-  String formatMoney(int n) =>
+  String formatMoney(num n) =>
       NumberFormat('#,###', 'vi_VN').format(n) + ' VND';
 
-  int get amountValue =>
-      int.tryParse(_amountController.text.replaceAll(RegExp(r'[^\d]'), '')) ??
-      _hoaDon.tongTien;
-
-  String get selectedAccountNumber => _accountController.text.isNotEmpty
-      ? _accountController.text
-      : BillConfig.shopBankAccount;
-
-  String get selectedAccountName => _accountNameController.text.isNotEmpty
-      ? _accountNameController.text
-      : BillConfig.shopAccountName;
-
-  // ✅ tạo PDF với font Roboto hỗ trợ tiếng Việt
+  // ---------------- PDF ----------------
   Future<pw.Document> _generatePdf() async {
-    final fontData = await rootBundle.load("assets/fonts/Roboto-Regular.ttf");
-    final ttf = pw.Font.ttf(fontData.buffer.asByteData());
+    final fontRegular = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/DejaVuSans.ttf'),
+    );
+    final fontBold = pw.Font.ttf(
+      await rootBundle.load('assets/fonts/DejaVuSans-Bold.ttf'),
+    );
 
-    final boldData = await rootBundle.load("assets/fonts/Roboto-Bold.ttf");
-    final boldTtf = pw.Font.ttf(boldData.buffer.asByteData());
+    final logoBytes = (await rootBundle.load(
+      'assets/icon/app_icon.png',
+    )).buffer.asUint8List();
+
+    // ⚠️ Bỏ vietqr_logo.png (nếu không có) vì lỗi asset missing
+    // Nếu muốn hiển thị logo VietQR, tải file vietqr_logo.png và khai báo trong pubspec.yaml:
+    // assets:
+    //   - assets/images/vietqr_logo.png
+
+    // ✅ Tạo link QR chuẩn VietQR
+    final qrUrl =
+        "https://img.vietqr.io/image/${_bankName ?? 'ACB'}-${_accountController.text}-qr_only.png"
+        "?amount=${_hoaDon.tongTien.toInt()}"
+        "&addInfo=${Uri.encodeComponent("Thanh toán HĐ ${_hoaDon.maHoaDon}")}"
+        "&accountName=${Uri.encodeComponent(_accountNameController.text)}";
+
+    Uint8List? qrBytes;
+    try {
+      final response = await http.get(Uri.parse(qrUrl));
+      if (response.statusCode == 200) {
+        qrBytes = response.bodyBytes;
+      } else {
+        debugPrint("Không thể tải QR từ VietQR (mã ${response.statusCode})");
+      }
+    } catch (e) {
+      debugPrint("Lỗi khi tải QR: $e");
+    }
 
     final pdf = pw.Document();
 
@@ -129,141 +116,137 @@ class _BillScreenState extends State<BillScreen> {
       pw.Page(
         pageFormat: PdfPageFormat.a4,
         margin: const pw.EdgeInsets.all(24),
-        build: (pw.Context context) {
+        theme: pw.ThemeData.withFont(base: fontRegular, bold: fontBold),
+        build: (context) {
           return pw.Column(
-            crossAxisAlignment: pw.CrossAxisAlignment.start,
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
             children: [
-              // Header cửa hàng
-              pw.Center(
-                child: pw.Column(
-                  children: [
-                    pw.Text(
-                      _shopNameController.text,
-                      style: pw.TextStyle(font: boldTtf, fontSize: 18),
-                    ),
-                    pw.Text(
-                      _shopAddressController.text,
-                      style: pw.TextStyle(font: ttf),
-                    ),
-                    pw.Text(
-                      "ĐT: ${_shopPhoneController.text}",
-                      style: pw.TextStyle(font: ttf),
-                    ),
-                  ],
-                ),
+              // Header
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.center,
+                children: [
+                  pw.Image(pw.MemoryImage(logoBytes), width: 60, height: 60),
+                  pw.SizedBox(width: 12),
+                  pw.Column(
+                    children: [
+                      pw.Text(
+                        _shopNameController.text,
+                        style: pw.TextStyle(
+                          font: fontBold,
+                          fontSize: 18,
+                          color: PdfColor.fromHex('#6C63FF'),
+                        ),
+                      ),
+                      pw.Text(
+                        _shopAddressController.text,
+                        style: const pw.TextStyle(fontSize: 10),
+                      ),
+                      pw.Text(
+                        "ĐT: ${_shopPhoneController.text}",
+                        style: const pw.TextStyle(fontSize: 10),
+                      ),
+                    ],
+                  ),
+                ],
               ),
               pw.SizedBox(height: 10),
-              pw.Divider(),
-
-              // Thông tin hóa đơn
               pw.Text(
                 "HÓA ĐƠN BÁN HÀNG",
-                style: pw.TextStyle(font: boldTtf, fontSize: 16),
+                style: pw.TextStyle(
+                  font: fontBold,
+                  fontSize: 16,
+                  color: PdfColor.fromHex('#6C63FF'),
+                ),
               ),
-              pw.SizedBox(height: 5),
+              pw.SizedBox(height: 8),
               pw.Text(
-                "Mã HĐ: ${_hoaDon.maHoaDon}",
-                style: pw.TextStyle(font: ttf),
+                "Mã hóa đơn: ${_hoaDon.maHoaDon}",
+                style: const pw.TextStyle(fontSize: 10),
               ),
               pw.Text(
                 "Ngày: ${DateFormat('dd/MM/yyyy HH:mm').format(_hoaDon.ngayLap ?? DateTime.now())}",
-                style: pw.TextStyle(font: ttf),
+                style: const pw.TextStyle(fontSize: 10),
               ),
               pw.Text(
-                "Thanh toán: ${widget.phuongThuc}",
-                style: pw.TextStyle(font: ttf),
+                "Phương thức: ${widget.phuongThuc}",
+                style: const pw.TextStyle(fontSize: 10),
               ),
-              pw.SizedBox(height: 10),
+              pw.SizedBox(height: 8),
               pw.Divider(),
 
-              // Danh sách hàng hóa
+              // Bảng hàng hóa
               pw.Table(
-                border: pw.TableBorder.all(),
-                columnWidths: {
-                  0: const pw.FlexColumnWidth(3),
-                  1: const pw.FlexColumnWidth(1),
-                  2: const pw.FlexColumnWidth(2),
-                  3: const pw.FlexColumnWidth(2),
-                },
+                border: pw.TableBorder.all(
+                  color: PdfColors.grey600,
+                  width: 0.5,
+                ),
                 children: [
                   pw.TableRow(
                     decoration: const pw.BoxDecoration(
                       color: PdfColors.grey300,
                     ),
                     children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          "Tên hàng",
-                          style: pw.TextStyle(font: boldTtf),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          "SL",
-                          style: pw.TextStyle(font: boldTtf),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          "Đơn giá",
-                          style: pw.TextStyle(font: boldTtf),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(4),
-                        child: pw.Text(
-                          "Thành tiền",
-                          style: pw.TextStyle(font: boldTtf),
-                        ),
-                      ),
+                      _pdfCell("Tên hàng", bold: true),
+                      _pdfCell("SL", bold: true),
+                      _pdfCell("Giá", bold: true),
+                      _pdfCell("Thành tiền", bold: true),
                     ],
                   ),
                   ..._hoaDon.items.map(
-                    (it) => pw.TableRow(
+                    (e) => pw.TableRow(
                       children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            it.tenHang,
-                            style: pw.TextStyle(font: ttf),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            "${it.soLuong}",
-                            style: pw.TextStyle(font: ttf),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            formatMoney(it.giaTien),
-                            style: pw.TextStyle(font: ttf),
-                          ),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(4),
-                          child: pw.Text(
-                            formatMoney(it.thanhTien()),
-                            style: pw.TextStyle(font: ttf),
-                          ),
-                        ),
+                        _pdfCell(e.tenHang),
+                        _pdfCell("${e.soLuong}"),
+                        _pdfCell(formatMoney(e.giaTien)),
+                        _pdfCell(formatMoney(e.thanhTien())),
                       ],
                     ),
                   ),
                 ],
               ),
+              pw.SizedBox(height: 10),
+              pw.Text(
+                "TỔNG CỘNG: ${formatMoney(_hoaDon.tongTien)}",
+                style: pw.TextStyle(
+                  font: fontBold,
+                  fontSize: 12,
+                  color: PdfColor.fromHex('#6C63FF'),
+                ),
+              ),
+              pw.SizedBox(height: 16),
 
-              pw.Divider(),
-              pw.Align(
-                alignment: pw.Alignment.centerRight,
-                child: pw.Text(
-                  "TỔNG CỘNG: ${formatMoney(_hoaDon.tongTien)}",
-                  style: pw.TextStyle(font: boldTtf, fontSize: 14),
+              // ✅ QR Thanh toán VietQR chuẩn
+              if (isChuyenKhoan && qrBytes != null)
+                pw.Column(
+                  children: [
+                    pw.Image(pw.MemoryImage(qrBytes), width: 220, height: 220),
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      _accountNameController.text,
+                      style: pw.TextStyle(
+                        font: fontBold,
+                        fontSize: 12,
+                        color: PdfColor.fromHex('#6C63FF'),
+                      ),
+                    ),
+                    pw.Text(
+                      "STK: ${_accountController.text}",
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                    pw.Text(
+                      "Ngân hàng: ${_bankName ?? ''}",
+                      style: const pw.TextStyle(fontSize: 10),
+                    ),
+                  ],
+                ),
+
+              pw.Spacer(),
+              pw.Text(
+                "Xin cảm ơn quý khách!",
+                style: pw.TextStyle(
+                  font: fontBold,
+                  fontSize: 12,
+                  color: PdfColor.fromHex('#6C63FF'),
                 ),
               ),
             ],
@@ -275,270 +258,150 @@ class _BillScreenState extends State<BillScreen> {
     return pdf;
   }
 
-  Future<void> _printBill() async {
-    final pdf = await _generatePdf();
-    await Printing.layoutPdf(
-      onLayout: (PdfPageFormat format) async => pdf.save(),
-    );
-  }
+  pw.Widget _pdfCell(String text, {bool bold = false}) => pw.Padding(
+    padding: const pw.EdgeInsets.all(6),
+    child: pw.Text(
+      text,
+      style: pw.TextStyle(
+        fontSize: 10,
+        fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+      ),
+    ),
+  );
 
-  Future<void> _shareBill() async {
+  Future<void> _printOrShare(bool share) async {
     final pdf = await _generatePdf();
     final bytes = await pdf.save();
-    await Printing.sharePdf(
-      bytes: bytes,
-      filename: 'hoa_don_${_hoaDon.maHoaDon}.pdf',
-    );
+    if (share) {
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'hoa_don_${_hoaDon.maHoaDon}.pdf',
+      );
+    } else {
+      await Printing.layoutPdf(onLayout: (_) async => bytes);
+    }
   }
 
-  // ✅ Dialog sửa Shop Info
-  void _editShopInfo() {
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text("Sửa thông tin cửa hàng"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _shopNameController,
-                decoration: const InputDecoration(labelText: "Tên cửa hàng"),
-              ),
-              TextField(
-                controller: _shopAddressController,
-                decoration: const InputDecoration(labelText: "Địa chỉ"),
-              ),
-              TextField(
-                controller: _shopPhoneController,
-                decoration: const InputDecoration(labelText: "Số điện thoại"),
-                keyboardType: TextInputType.phone,
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("Hủy"),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                await _saveShopInfo();
-                setState(() {});
-                Navigator.pop(ctx);
-              },
-              child: const Text("Lưu"),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // ✅ Dialog sửa QR Info (đã thêm chọn ngân hàng)
-  void _editQRInfo() {
-    // Khởi tạo temporary values để chỉnh trong dialog
-    String? tempBank = _bankName;
-    final tempAccountController = TextEditingController(
-      text: _accountController.text,
-    );
-    final tempAccountNameController = TextEditingController(
-      text: _accountNameController.text,
-    );
-    final tempAmountController = TextEditingController(
-      text: _amountController.text,
-    );
-
-    showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (context, setStateDialog) {
-            return AlertDialog(
-              title: const Text("Sửa thông tin chuyển khoản"),
-              content: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Dropdown chọn ngân hàng
-                    DropdownButtonFormField<String>(
-                      value: tempBank,
-                      decoration: const InputDecoration(labelText: "Ngân hàng"),
-                      items: BillConfig.bankNameToBin.keys.map((bank) {
-                        // giữ hiển thị theo key gốc nhưng value là uppercase
-                        return DropdownMenuItem(
-                          value: bank.toUpperCase(),
-                          child: Text(bank),
-                        );
-                      }).toList(),
-                      onChanged: (value) {
-                        setStateDialog(() {
-                          tempBank = value;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 10),
-                    TextField(
-                      controller: tempAccountNameController,
-                      decoration: const InputDecoration(
-                        labelText: "Tên tài khoản",
-                      ),
-                    ),
-                    TextField(
-                      controller: tempAccountController,
-                      decoration: const InputDecoration(
-                        labelText: "Số tài khoản",
-                      ),
-                      keyboardType: TextInputType.number,
-                    ),
-                    TextField(
-                      controller: tempAmountController,
-                      decoration: const InputDecoration(labelText: "Số tiền"),
-                      keyboardType: TextInputType.number,
-                    ),
-                  ],
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text("Hủy"),
-                ),
-                ElevatedButton(
-                  onPressed: () async {
-                    // Ghi lại giá trị vào controller chính và lưu defaults
-                    _bankName = tempBank ?? _bankName;
-                    _accountController.text = tempAccountController.text;
-                    _accountNameController.text =
-                        tempAccountNameController.text;
-                    _amountController.text = tempAmountController.text;
-
-                    await _saveDefaults();
-                    setState(() {}); // cập nhật giao diện chính
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text("Lưu"),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
-  }
-
+  // ---------------- UI ----------------
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Hóa đơn'),
+        title: const Text("Hóa đơn bán hàng"),
+        backgroundColor: const Color(0xFF6C63FF),
         actions: [
-          IconButton(icon: const Icon(Icons.print), onPressed: _printBill),
-          IconButton(icon: const Icon(Icons.share), onPressed: _shareBill),
+          IconButton(
+            icon: const Icon(Icons.print),
+            onPressed: () => _printOrShare(false),
+          ),
+          IconButton(
+            icon: const Icon(Icons.share),
+            onPressed: () => _printOrShare(true),
+          ),
         ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             GestureDetector(
-              onTap: _editShopInfo,
+              onTap: _showEditShopInfo,
               child: Column(
                 children: [
+                  Image.asset(
+                    "assets/icon/app_icon.png",
+                    width: 80,
+                    height: 80,
+                  ),
+                  const SizedBox(height: 6),
                   Text(
                     _shopNameController.text,
                     style: const TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
+                      color: Color(0xFF6C63FF),
                     ),
-                    textAlign: TextAlign.center,
                   ),
-                  Text(
-                    _shopAddressController.text,
-                    textAlign: TextAlign.center,
-                  ),
-                  Text(
-                    "ĐT: ${_shopPhoneController.text}",
-                    textAlign: TextAlign.center,
+                  Text(_shopAddressController.text),
+                  Text("ĐT: ${_shopPhoneController.text}"),
+                  const Text(
+                    "(Bấm để chỉnh sửa thông tin cửa hàng)",
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 ],
               ),
             ),
-            const Divider(),
-            _infoRow('Mã HĐ', _hoaDon.maHoaDon),
+            const Divider(height: 30),
+            _infoRow("Mã hóa đơn", _hoaDon.maHoaDon),
             _infoRow(
-              'Ngày',
+              "Ngày tạo",
               DateFormat(
                 'dd/MM/yyyy HH:mm',
               ).format(_hoaDon.ngayLap ?? DateTime.now()),
             ),
-            _infoRow('Loại', _hoaDon.loaiHoaDon ?? ''),
-            _infoRow('Thanh toán', widget.phuongThuc),
+            _infoRow("Phương thức", widget.phuongThuc),
             const Divider(),
             ..._hoaDon.items.map(
               (it) => _infoRow(
                 it.tenHang,
-                "${it.soLuong} x ${formatMoney(it.giaTien)} = ${formatMoney(it.thanhTien())}",
+                "${it.soLuong} × ${formatMoney(it.giaTien)} = ${formatMoney(it.thanhTien())}",
               ),
             ),
             const Divider(),
-            _infoRow('TỔNG CỘNG', formatMoney(_hoaDon.tongTien), bold: true),
-            const SizedBox(height: 12),
-            if (isChuyenKhoan) ...[
-              const Center(
-                child: Text(
-                  'Chạm vào QR hoặc thông tin để sửa trực tiếp',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
-              const SizedBox(height: 8),
+            _infoRow("TỔNG CỘNG", formatMoney(_hoaDon.tongTien), bold: true),
+            const SizedBox(height: 16),
+            if (isChuyenKhoan)
               GestureDetector(
-                onTap: _editQRInfo,
-                child: Center(
-                  child: VietQRNetworkImage(
-                    bankCode: _bankName ?? 'ACB',
-                    accountNumber: selectedAccountNumber,
-                    amount: amountValue,
-                    addInfo: "Thanh toan HD: ${_hoaDon.maHoaDon}",
-                    size: 230,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              GestureDetector(
-                onTap: _editQRInfo,
+                onTap: _showEditBankInfo,
                 child: Column(
                   children: [
-                    Text(
-                      selectedAccountName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    VietQRNetworkImage(
+                      bankCode: _bankName ?? 'ACB',
+                      accountNumber: _accountController.text,
+                      amount: _hoaDon.tongTien,
+                      addInfo: "Thanh toán HĐ: ${_hoaDon.maHoaDon}",
+                      size: 280,
                     ),
-                    Text(selectedAccountNumber),
-                    Text('Ngân hàng: ${_bankName ?? 'VN (shop)'}'),
+                    const SizedBox(height: 8),
+                    Text(
+                      _accountNameController.text,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF6C63FF),
+                      ),
+                    ),
+                    Text("STK: ${_accountController.text}"),
+                    Text("Ngân hàng: ${_bankName ?? ''}"),
+                    const Text(
+                      "(Bấm vào mã QR để chỉnh sửa thông tin tài khoản)",
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
                   ],
                 ),
-              ),
-            ] else if (isTienMat)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: 12),
-                child: Text('Thanh toán tiền mặt'),
-              ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                if (widget.onConfirmPayment != null) widget.onConfirmPayment!();
-                Navigator.pop(context, true);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade400,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(double.infinity, 50),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+              )
+            else
+              const Center(child: Text("Thanh toán tiền mặt")),
+            const SizedBox(height: 30),
+            ElevatedButton.icon(
+              icon: const Icon(Icons.check, color: Colors.black),
+              label: const Text(
+                "Xác nhận thanh toán",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-              child: const Text('Xác nhận thanh toán'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF6C63FF),
+                minimumSize: const Size(double.infinity, 50),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onPressed: () {
+                widget.onConfirmPayment?.call();
+                Navigator.pop(context, true);
+              },
             ),
           ],
         ),
@@ -546,25 +409,212 @@ class _BillScreenState extends State<BillScreen> {
     );
   }
 
-  Widget _infoRow(String l, String r, {bool bold = false}) {
+  Widget _infoRow(String left, String right, {bool bold = false}) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            l,
-            style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null,
+          Expanded(
+            child: Text(
+              left,
+              style: bold
+                  ? const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF6C63FF),
+                    )
+                  : const TextStyle(color: Colors.black87),
+            ),
           ),
           Flexible(
             child: Text(
-              r,
+              right,
               textAlign: TextAlign.right,
-              style: bold ? const TextStyle(fontWeight: FontWeight.bold) : null,
+              style: bold
+                  ? const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF6C63FF),
+                    )
+                  : const TextStyle(color: Colors.black87),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  // ---------------- chỉnh sửa cửa hàng ----------------
+  Future<void> _showEditShopInfo() async {
+    final nameCtrl = TextEditingController(text: _shopNameController.text);
+    final addressCtrl = TextEditingController(
+      text: _shopAddressController.text,
+    );
+    final phoneCtrl = TextEditingController(text: _shopPhoneController.text);
+
+    await showModalBottomSheet(
+      isScrollControlled: true,
+      context: context,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Chỉnh sửa thông tin cửa hàng",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: nameCtrl,
+                  decoration: const InputDecoration(labelText: "Tên cửa hàng"),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: addressCtrl,
+                  decoration: const InputDecoration(labelText: "Địa chỉ"),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: phoneCtrl,
+                  decoration: const InputDecoration(labelText: "Số điện thoại"),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("Hủy"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C63FF),
+                        ),
+                        child: const Text(
+                          "Lưu",
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('shopName', nameCtrl.text);
+                          await prefs.setString(
+                            'shopAddress',
+                            addressCtrl.text,
+                          );
+                          await prefs.setString('shopPhone', phoneCtrl.text);
+                          setState(() {
+                            _shopNameController.text = nameCtrl.text;
+                            _shopAddressController.text = addressCtrl.text;
+                            _shopPhoneController.text = phoneCtrl.text;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ---------------- chỉnh sửa ngân hàng ----------------
+  Future<void> _showEditBankInfo() async {
+    final bankCtrl = TextEditingController(text: _bankName);
+    final accCtrl = TextEditingController(text: _accountController.text);
+    final accNameCtrl = TextEditingController(
+      text: _accountNameController.text,
+    );
+
+    await showModalBottomSheet(
+      isScrollControlled: true,
+      context: context,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          ),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Chỉnh sửa thông tin tài khoản ngân hàng",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: _bankName,
+                  decoration: const InputDecoration(labelText: "Ngân hàng"),
+                  items: _bankList
+                      .map((b) => DropdownMenuItem(value: b, child: Text(b)))
+                      .toList(),
+                  onChanged: (v) => bankCtrl.text = v ?? 'ACB',
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: accNameCtrl,
+                  decoration: const InputDecoration(labelText: "Tên tài khoản"),
+                ),
+                const SizedBox(height: 8),
+                TextFormField(
+                  controller: accCtrl,
+                  decoration: const InputDecoration(labelText: "Số tài khoản"),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.pop(ctx),
+                        child: const Text("Hủy"),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6C63FF),
+                        ),
+                        child: const Text(
+                          "Lưu",
+                          style: TextStyle(color: Colors.black),
+                        ),
+                        onPressed: () async {
+                          final prefs = await SharedPreferences.getInstance();
+                          await prefs.setString('defaultBank', bankCtrl.text);
+                          await prefs.setString('defaultAccount', accCtrl.text);
+                          await prefs.setString(
+                            'defaultAccountName',
+                            accNameCtrl.text,
+                          );
+                          setState(() {
+                            _bankName = bankCtrl.text;
+                            _accountController.text = accCtrl.text;
+                            _accountNameController.text = accNameCtrl.text;
+                          });
+                          Navigator.pop(ctx);
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

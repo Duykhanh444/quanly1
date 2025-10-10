@@ -12,7 +12,7 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # Hiển thị loading, ảnh, chia sẻ, đường dẫn, ...
+  # ==================== HỖ TRỢ CHUNG ====================
   flutter_easyloading: ^3.0.5
   photo_view: ^0.15.0
   share_plus: ^10.0.2
@@ -22,35 +22,40 @@ dependencies:
   intl: ^0.18.1
   cached_network_image: ^3.2.3
   convert: ^3.1.1
+  http: ^1.2.0                            # Giữ lại bản mới nhất
 
-  # Firebase
+  # ==================== FIREBASE ====================
   firebase_core: ^3.6.0
 
-  # Gửi link, mở URL
+  # ==================== MẠNG & DỮ LIỆU ====================
+  shared_preferences: ^2.0.15
+  image_picker: ^1.1.2
+
+  # ==================== MỞ LINK, GỌI ĐIỆN, URL ====================
   url_launcher: ^6.3.0
 
-  # Gọi API, lưu trữ, chọn ảnh
-  http: ^0.13.6
-  image_picker: ^1.0.4
-  shared_preferences: ^2.0.15
-
-  # Biểu đồ & đồ họa
+  # ==================== BIỂU ĐỒ & ĐỒ HỌA ====================
   fl_chart: ^0.68.0
 
-  # Quét mã QR / mã vạch
-  mobile_scanner: ^3.5.7        # ✅ bản mới nhất (bỏ allowDuplicates)
-  qr_flutter: ^4.1.0            # ✅ tạo QR code
-  barcode: ^2.2.6               # ✅ tạo barcode cơ bản
-  barcode_widget: ^2.0.3        # ✅ tạo BarcodeWidget (giải lỗi của bạn)
+  # ==================== QR / BARCODE ====================
+  mobile_scanner: ^3.5.7              # Quét mã QR / barcode bằng camera
+  qr_flutter: ^4.1.0                  # Tạo mã QR (QrPainter)
+  barcode: ^2.2.6                     # Tạo mã vạch
+  barcode_widget: ^2.0.3              # Hiển thị barcode
+  qr_code_tools: ^0.2.0               # Đọc QR từ ảnh
+  google_mlkit_barcode_scanning: ^0.11.0 # Quét QR từ ảnh MLKit
+  permission_handler: ^11.3.0         # Quyền truy cập file/ảnh
 
-  # Xuất PDF / In ấn
-  pdf: ^3.10.7
-  printing: ^5.12.0
+  # ==================== IN ẤN / XUẤT FILE ====================
+  pdf: ^3.10.7                        # Tạo file PDF
+  printing: ^5.12.0                   # In và chia sẻ PDF
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+
+  # ==================== MOCK & CÔNG CỤ PHÁT TRIỂN ====================
   firebase_auth_mocks: ^0.14.2
   google_sign_in_mocks: ^0.3.0
   flutter_launcher_icons: ^0.13.1
@@ -61,12 +66,14 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/icon/app_icon.png
     - assets/icon/
+    - assets/fonts/
     - assets/fonts/Roboto-Regular.ttf
     - assets/fonts/Roboto-Bold.ttf
+    - assets/fonts/DejaVuSans.ttf
+    - assets/fonts/DejaVuSans-Bold.ttf
 
-# ✅ Cấu hình icon app
+# ==================== CẤU HÌNH ICON APP ====================
 flutter_launcher_icons:
   android: true
   ios: true
@@ -74,7 +81,7 @@ flutter_launcher_icons:
   adaptive_icon_background: "#ffffff"
   adaptive_icon_foreground: "assets/icon/app_icon.png"
 
-# ✅ Cấu hình splash screen
+# ==================== CẤU HÌNH SPLASH SCREEN ====================
 flutter_native_splash:
   color: "#ffffff"
   image: assets/icon/app_icon.png

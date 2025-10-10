@@ -446,6 +446,24 @@ class ApiService {
     }
   }
 
+  static Future<HoaDon?> taoHoaDonTheoMa(String maSanPham) async {
+    try {
+      final url = Uri.parse('$baseUrlHoaDon/tao-theo-ma/$maSanPham');
+      final response = await http.post(url, headers: _headersAuth);
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        return HoaDon.fromJson(jsonDecode(response.body));
+      } else {
+        debugPrint(
+          '❌ Lỗi tạo hóa đơn theo mã: ${response.statusCode} ${response.body}',
+        );
+      }
+    } catch (e) {
+      debugPrint('🔥 Exception taoHoaDonTheoMa: $e');
+    }
+    return null;
+  }
+
   // --------------------- ẢNH ---------------------
   static String getAnhUrl(String? path) {
     if (path == null || path.isEmpty) {
@@ -538,22 +556,24 @@ class ApiService {
     return await doiMatKhau(oldPassword: oldPassword, newPassword: newPassword);
   }
 
-  // 🧱 Thêm hoặc sửa kho hàng qua JSON
   static Future<bool> themHoacSuaKhoHangJson(Map<String, dynamic> data) async {
     try {
-      // ✅ Dùng host động từ ApiConfig
-      final url = Uri.parse('${ApiConfig.apiBase}/KhoHang/ThemHoacSua');
+      final url = Uri.parse('$_baseUrl/KhoHang/ThemHoacSua');
       debugPrint('📡 Gửi yêu cầu tới: $url');
       debugPrint('📦 Dữ liệu gửi đi: ${jsonEncode(data)}');
 
-      // ✅ Gửi POST request
+      final headers = {
+        'Content-Type': 'application/json',
+        if (token != null) 'Authorization': 'Bearer $token',
+      };
+
+      // ✅ Chỉ dùng POST (backend đã tự xử lý thêm/sửa)
       final response = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: headers,
         body: jsonEncode(data),
       );
 
-      // ✅ Kiểm tra kết quả trả về
       if (response.statusCode == 200 || response.statusCode == 201) {
         debugPrint('✅ Thêm/Sửa kho hàng thành công');
         return true;
@@ -565,5 +585,64 @@ class ApiService {
       debugPrint('🔥 Lỗi khi gọi API ThêmHoặcSửaKhoHang: $e');
       return false;
     }
+  }
+
+  // 🧩 Kiểm tra kho hàng theo mã
+  static Future<KhoHang?> timKhoTheoMa(String maKho) async {
+    try {
+      final url = Uri.parse('$baseUrlKhoHang/TimTheoMa/$maKho');
+      final response = await http.get(url, headers: _headersAuth);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return KhoHang.fromJson(data);
+      }
+    } catch (e) {
+      print("Exception timKhoTheoMa: $e");
+    }
+    return null;
+  }
+
+  // 🧩 Tạo kho mới nếu chưa tồn tại (sau khi quét QR)
+  static Future<KhoHang?> taoKhoSauKhiQuetQR(
+    Map<String, dynamic> dataQR,
+  ) async {
+    try {
+      final maKho = dataQR['maKho'];
+      if (maKho == null) return null;
+
+      // 1️⃣ Kiểm tra tồn tại
+      final khoTonTai = await timKhoTheoMa(maKho);
+      if (khoTonTai != null) {
+        print('⚠️ Kho đã tồn tại: ${khoTonTai.tenKho}');
+        return khoTonTai;
+      }
+
+      // 2️⃣ Tạo mới kho nếu chưa có
+      final khoMoi = KhoHang(
+        id: 0,
+        tenKho: dataQR['tenKho'] ?? 'Kho chưa đặt tên',
+        ghiChu: dataQR['ghiChu'] ?? '', // nếu có trong QR
+        giaTri: 0.0, // hoặc để null nếu không có
+        ngayNhap: DateTime.now(),
+        trangThai: 'Hoạt động',
+      );
+
+      final response = await http.post(
+        Uri.parse(baseUrlKhoHang),
+        headers: _headersAuth,
+        body: jsonEncode(khoMoi.toJson()),
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        final data = jsonDecode(response.body);
+        print('✅ Tạo kho hàng mới thành công: ${data['tenKho']}');
+        return KhoHang.fromJson(data);
+      } else {
+        print('❌ Tạo kho thất bại: ${response.statusCode} ${response.body}');
+      }
+    } catch (e) {
+      print('Exception taoKhoSauKhiQuetQR: $e');
+    }
+    return null;
   }
 }

@@ -1,9 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:qr_code_tools/qr_code_tools.dart';
+
 import '../models/khohang.dart';
 import '../services/api_service.dart';
 import 'chi_tiet_kho_hang_screen.dart';
 import 'them_kho_hang_screen.dart';
+import 'danh_sach_nhan_vien_screen.dart';
+import 'hoa_don_screen.dart';
+import '../main.dart';
 
 class KhoHangScreen extends StatefulWidget {
   @override
@@ -16,11 +23,14 @@ class _KhoHangScreenState extends State<KhoHangScreen>
   List<KhoHang> _danhSachKho = [];
   List<KhoHang> _filteredKho = [];
   bool _isLoading = true;
-  int _currentIndex = 2;
   String _searchText = "";
 
   int _tongHoatDong = 0;
   int _tongDaXuat = 0;
+
+  int _currentIndex = 2; // 🔹 index của tab "Kho Hàng"
+
+  final MobileScannerController _scannerController = MobileScannerController();
 
   @override
   void initState() {
@@ -29,6 +39,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     _loadDanhSach();
   }
 
+  // ====== LẤY DANH SÁCH KHO ======
   Future<void> _loadDanhSach() async {
     setState(() => _isLoading = true);
     final ds = await ApiService.layDanhSachKhoHang();
@@ -41,6 +52,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     });
   }
 
+  // ====== LỌC TÌM KIẾM ======
   void _applySearch() {
     if (_searchText.isEmpty) {
       _filteredKho = _danhSachKho;
@@ -55,6 +67,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     }
   }
 
+  // ====== XÓA MỘT KHO ======
   Future<void> _xoaKhoHang(int id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -80,6 +93,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     }
   }
 
+  // ====== XÓA TOÀN BỘ KHO ĐÃ XUẤT ======
   Future<void> _xoaTatCaLichSu() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -115,6 +129,179 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     return "${formatter.format(value)} đ";
   }
 
+  // ====== QUÉT QR BẰNG CAMERA ======
+  Future<void> _moCameraQuetQR() async {
+    await showDialog(
+      context: context,
+      builder: (ctx) {
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.deepPurple,
+            title: const Text("Quét mã QR"),
+            centerTitle: true,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.flash_on),
+                onPressed: () => _scannerController.toggleTorch(),
+              ),
+              IconButton(
+                icon: const Icon(Icons.cameraswitch),
+                onPressed: () => _scannerController.switchCamera(),
+              ),
+            ],
+          ),
+          body: Stack(
+            children: [
+              MobileScanner(
+                controller: _scannerController,
+                onDetect: (capture) async {
+                  final barcode = capture.barcodes.first.rawValue ?? "";
+                  if (barcode.isNotEmpty) {
+                    Navigator.pop(ctx);
+                    try {
+                      final dataQR = Uri.splitQueryString(barcode);
+                      final tenHang = dataQR['tenHang'] ?? 'Không tên';
+                      final giaTri =
+                          double.tryParse(dataQR['giaTri'] ?? '0') ?? 0;
+                      final ghiChu = dataQR['ghiChu'] ?? '';
+                      final tonTai = _danhSachKho.any(
+                        (k) =>
+                            (k.tenKho ?? "").toLowerCase() ==
+                            tenHang.toLowerCase(),
+                      );
+
+                      if (!tonTai) {
+                        final khoMoi = KhoHang(
+                          id: 0,
+                          tenKho: tenHang,
+                          ghiChu: ghiChu,
+                          giaTri: giaTri,
+                          ngayNhap: DateTime.now(),
+                          trangThai: "Hoạt động",
+                        );
+                        await ApiService.themHoacSuaKhoHang(khoMoi);
+                        await _loadDanhSach();
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("✅ Đã tạo kho mới: $tenHang"),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text("⚠️ Kho '$tenHang' đã tồn tại!"),
+                            backgroundColor: Colors.orange,
+                          ),
+                        );
+                      }
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text("❌ Lỗi khi đọc mã QR: $e"),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  }
+                },
+              ),
+              Center(
+                child: Container(
+                  width: 260,
+                  height: 260,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 3),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+              Positioned(
+                bottom: 40,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.deepPurple,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                    ),
+                    icon: const Icon(Icons.image, color: Colors.white),
+                    label: const Text(
+                      "Chọn ảnh để quét",
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    onPressed: () async {
+                      Navigator.pop(ctx);
+                      await _quetTuAnh();
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ====== QUÉT TỪ ẢNH ======
+  Future<void> _quetTuAnh() async {
+    final picker = ImagePicker();
+    final picked = await picker.pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    try {
+      final result = await QrCodeToolsPlugin.decodeFrom(picked.path);
+      if (result != null && result.isNotEmpty) {
+        final dataQR = Uri.splitQueryString(result);
+        final tenHang = dataQR['tenHang'] ?? 'Không tên';
+        final giaTri = double.tryParse(dataQR['giaTri'] ?? '0') ?? 0;
+        final ghiChu = dataQR['ghiChu'] ?? '';
+        final tonTai = _danhSachKho.any(
+          (k) => (k.tenKho ?? "").toLowerCase() == tenHang.toLowerCase(),
+        );
+
+        if (!tonTai) {
+          final khoMoi = KhoHang(
+            id: 0,
+            tenKho: tenHang,
+            ghiChu: ghiChu,
+            giaTri: giaTri,
+            ngayNhap: DateTime.now(),
+            trangThai: "Hoạt động",
+          );
+          await ApiService.themHoacSuaKhoHang(khoMoi);
+          await _loadDanhSach();
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text("✅ Đã tạo kho mới: $tenHang")));
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text("⚠️ Kho '$tenHang' đã tồn tại!")),
+          );
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Không tìm thấy mã QR trong ảnh")),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Lỗi khi quét ảnh: $e")));
+    }
+  }
+
+  // ====== GIAO DIỆN CHÍNH ======
   @override
   Widget build(BuildContext context) {
     final today = DateFormat("dd/MM/yyyy").format(DateTime.now());
@@ -122,7 +309,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     return Scaffold(
       body: Column(
         children: [
-          // ===== HEADER =====
+          // ===== HEADER CÓ LOGO =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
@@ -140,6 +327,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Header với logo và nút QR
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -164,11 +352,24 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                         ),
                       ],
                     ),
-                    Image.asset(
-                      "assets/icon/app_icon.png",
-                      width: 100,
-                      height: 100,
-                      fit: BoxFit.contain,
+                    Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(
+                            Icons.qr_code_2,
+                            color: Colors.white,
+                            size: 30,
+                          ),
+                          tooltip: "Quét mã QR",
+                          onPressed: _moCameraQuetQR,
+                        ),
+                        const SizedBox(width: 4),
+                        Image.asset(
+                          "assets/icon/app_icon.png",
+                          width: 46,
+                          height: 46,
+                        ),
+                      ],
                     ),
                   ],
                 ),
@@ -258,7 +459,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
         ],
       ),
 
-      // ===== FAB =====
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4A00E0),
         child: const Icon(Icons.add, color: Colors.white),
@@ -269,6 +469,39 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           );
           if (result == true) _loadDanhSach();
         },
+      ),
+
+      // ===== THANH TASKBAR DƯỚI =====
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _currentIndex,
+        selectedItemColor: const Color(0xFF4A00E0),
+        unselectedItemColor: Colors.grey,
+        type: BottomNavigationBarType.fixed,
+        onTap: (index) {
+          setState(() => _currentIndex = index);
+          if (index == 0)
+            Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
+          if (index == 1) Navigator.pushReplacementNamed(context, '/hoa-don');
+          if (index == 2) Navigator.pushReplacementNamed(context, '/kho-hang');
+          if (index == 3) Navigator.pushReplacementNamed(context, '/doanh-thu');
+          if (index == 4) Navigator.pushReplacementNamed(context, '/home');
+        },
+        items: const [
+          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: "Hóa Đơn",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.warehouse),
+            label: "Kho Hàng",
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.bar_chart),
+            label: "Doanh Thu",
+          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+        ],
       ),
     );
   }
@@ -310,23 +543,16 @@ class _KhoHangScreenState extends State<KhoHangScreen>
   // ===== DANH SÁCH KHO =====
   Widget _buildList(String trangThai) {
     final ds = _filteredKho.where((k) => k.trangThai == trangThai).toList();
-    ds.sort(
-      (a, b) => (a.ngayNhap ?? DateTime.now()).compareTo(
-        b.ngayNhap ?? DateTime.now(),
-      ),
-    );
-
     if (ds.isEmpty) return const Center(child: Text("Không có dữ liệu"));
 
     return ListView.builder(
       itemCount: ds.length,
       itemBuilder: (context, index) {
         final kho = ds[index];
-        DateTime start = kho.ngayNhap ?? DateTime.now();
-        DateTime end = kho.ngayXuat ?? DateTime.now();
-        int soNgay = end.difference(start).inDays;
-
-        Color statusColor = kho.trangThai == "Hoạt động"
+        final start = kho.ngayNhap ?? DateTime.now();
+        final end = kho.ngayXuat ?? DateTime.now();
+        final soNgay = end.difference(start).inDays;
+        final statusColor = kho.trangThai == "Hoạt động"
             ? Colors.green
             : Colors.grey;
 
@@ -352,13 +578,10 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                 padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    // === Nút XÓA bên trái ===
                     IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () => _xoaKhoHang(kho.id),
                     ),
-
-                    // === Nội dung giữa ===
                     Expanded(
                       child: Row(
                         children: [
@@ -400,8 +623,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                                   ),
                                 const SizedBox(height: 4),
                                 Text(
-                                  "Ngày nhập: ${_formatDate(start)}"
-                                  "${kho.ngayXuat != null ? " | Ngày xuất: ${_formatDate(end)}" : ""}",
+                                  "Ngày nhập: ${_formatDate(start)}${kho.ngayXuat != null ? " | Ngày xuất: ${_formatDate(end)}" : ""}",
                                   style: TextStyle(color: Colors.grey[700]),
                                 ),
                                 if (soNgay > 0)
@@ -440,8 +662,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                         ],
                       ),
                     ),
-
-                    // === Nút SỬA bên phải (chỉ khi chưa xuất) ===
                     if (kho.trangThai != "Đã xuất")
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.orange),
