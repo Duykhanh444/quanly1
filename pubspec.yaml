@@ -11,7 +11,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_local_notifications: ^17.1.2 # Phiên bản có thể mới hơn
+
   # ==================== HỖ TRỢ CHUNG ====================
   flutter_easyloading: ^3.0.5
   photo_view: ^0.15.0

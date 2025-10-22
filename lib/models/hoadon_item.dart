@@ -1,4 +1,5 @@
-// ------------------------- HoaDonItem -------------------------
+// models/hoadon_item.dart
+
 class HoaDonItem {
   int id; // id item trong hóa đơn (0 = mới)
   String tenHang; // Tên hàng
@@ -18,7 +19,8 @@ class HoaDonItem {
       id: json['id'] ?? 0,
       tenHang: json['tenHang'] ?? '',
       soLuong: json['soLuong'] ?? 0,
-      giaTien: json['giaTien'] ?? 0,
+      // ✅ ĐÃ SỬA: Xử lý số lớn an toàn khi đọc từ JSON
+      giaTien: (json['giaTien'] as num? ?? 0).toInt(),
     );
   }
 
@@ -29,7 +31,7 @@ class HoaDonItem {
       'tenHang': tenHang,
       'soLuong': soLuong,
       'giaTien': giaTien,
-      'thanhTien': thanhTien(), // tổng tiền từng mặt hàng
+      // 'thanhTien' không cần thiết vì backend sẽ tự tính
     };
   }
 

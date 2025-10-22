@@ -19,7 +19,7 @@ class HoaDon {
   HoaDon({
     this.id = 0,
     this.maHoaDon = '',
-    this.items = const [],
+    List<HoaDonItem>? items, // Cho phép khởi tạo với list có thể null
     this.tongTien = 0,
     this.ngayLap,
     this.trangThai,
@@ -28,7 +28,7 @@ class HoaDon {
     this.supplierBankName,
     this.supplierAccount,
     this.supplierAccountName,
-  });
+  }) : items = items ?? []; // Gán list rỗng nếu null
 
   factory HoaDon.fromJson(Map<String, dynamic> json) {
     return HoaDon(
@@ -37,7 +37,8 @@ class HoaDon {
       items: (json['items'] as List<dynamic>? ?? [])
           .map((e) => HoaDonItem.fromJson(e))
           .toList(),
-      tongTien: json['tongTien'] ?? 0,
+      // ✅ ĐÃ SỬA: Xử lý số lớn an toàn khi đọc từ JSON
+      tongTien: (json['tongTien'] as num? ?? 0).toInt(),
       ngayLap: json['ngayLap'] != null ? DateTime.parse(json['ngayLap']) : null,
       trangThai: json['trangThai'],
       loaiHoaDon: json['loaiHoaDon'],
