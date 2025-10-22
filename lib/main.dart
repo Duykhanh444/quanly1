@@ -13,7 +13,7 @@ import 'screens/show_qr_screen.dart';
 import 'screens/api_settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-
+import 'notification_service.dart'; // Import file vừa tạo
 import 'models/hoadon.dart';
 import 'models/khohang.dart';
 import 'models/nhanvien.dart';
@@ -23,7 +23,8 @@ import 'api_config.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConfig.init();
-
+  NotificationService.initialize(); // ✅ Khởi tạo dịch vụ thông báo
+  // await Firebase.initializeApp();
   runApp(const QuanLyXuongApp());
   configLoading();
 }

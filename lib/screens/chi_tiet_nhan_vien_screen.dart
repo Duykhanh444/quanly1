@@ -5,9 +5,9 @@ import '../models/nhanvien.dart';
 import '../models/workday.dart';
 import '../services/api_service.dart';
 import 'them_nhan_vien_screen.dart';
-import '../api_config.dart'; // ✅ thêm import ApiConfig
+import '../api_config.dart';
 import 'xem_anh_screen.dart';
-import 'package:url_launcher/url_launcher.dart'; // ✅ thêm để gọi điện
+import 'package:url_launcher/url_launcher.dart';
 
 class ChiTietNhanVienScreen extends StatefulWidget {
   final int nhanVienId;
@@ -22,6 +22,9 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
   NhanVien? nhanVien;
   bool isLoading = true;
   final NumberFormat _currencyFormatter = NumberFormat('#,###', 'vi_VN');
+
+  // ✅ 1. Thêm biến để theo dõi sự thay đổi
+  bool _hasChanged = false;
 
   @override
   void initState() {
@@ -40,9 +43,7 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
 
   Future<void> _goiDienThoai(String soDienThoai) async {
     final Uri uri = Uri(scheme: 'tel', path: soDienThoai);
-
     try {
-      // 🔹 Bắt buộc phải mở ở chế độ "external" để ra ứng dụng gọi điện
       if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
         throw 'Không thể mở ứng dụng gọi điện';
       }
@@ -53,7 +54,6 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
     }
   }
 
-  // --- Thêm ngày công ---
   Future<void> _themNgayLam() async {
     if (nhanVien == null) return;
 
@@ -89,10 +89,12 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
 
     final wd = WorkDay(id: 0, ngay: ngayPicked, soGio: soGio);
     final updated = await ApiService.chamCong(nhanVien!.id, wd);
-    if (updated != null) setState(() => nhanVien = updated);
+    if (updated != null) {
+      setState(() => nhanVien = updated);
+      _hasChanged = true; // ✅ 2. Đánh dấu có thay đổi
+    }
   }
 
-  // --- Sửa số giờ ---
   Future<void> _suaSoGio(WorkDay wd) async {
     final gioController = TextEditingController(text: wd.soGio.toString());
     final soGioMoi = await showDialog<int>(
@@ -118,10 +120,12 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
 
     final wdUpdated = WorkDay(id: wd.id, ngay: wd.ngay, soGio: soGioMoi);
     final updated = await ApiService.suaWorkDay(nhanVien!.id, wdUpdated);
-    if (updated != null) setState(() => nhanVien = updated);
+    if (updated != null) {
+      setState(() => nhanVien = updated);
+      _hasChanged = true; // ✅ 2. Đánh dấu có thay đổi
+    }
   }
 
-  // --- Xóa ngày công ---
   Future<void> _xoaWorkDay(WorkDay wd) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -146,10 +150,12 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
     if (confirm != true) return;
 
     final updated = await ApiService.xoaWorkDay(nhanVien!.id, wd.id);
-    if (updated != null) setState(() => nhanVien = updated);
+    if (updated != null) {
+      setState(() => nhanVien = updated);
+      _hasChanged = true; // ✅ 2. Đánh dấu có thay đổi
+    }
   }
 
-  // --- Sửa nhân viên ---
   Future<void> _suaNhanVien() async {
     if (nhanVien == null) return;
 
@@ -158,7 +164,10 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
       MaterialPageRoute(builder: (_) => ThemNhanVienScreen(nhanVien: nhanVien)),
     );
 
-    if (updatedNhanVien != null) setState(() => nhanVien = updatedNhanVien);
+    if (updatedNhanVien != null) {
+      setState(() => nhanVien = updatedNhanVien);
+      _hasChanged = true; // ✅ 2. Đánh dấu có thay đổi
+    }
   }
 
   @override
@@ -167,142 +176,155 @@ class _ChiTietNhanVienScreenState extends State<ChiTietNhanVienScreen> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (nhanVien == null) {
-      return const Scaffold(
-        body: Center(child: Text('❌ Không tìm thấy nhân viên')),
+      return Scaffold(
+        appBar: AppBar(),
+        body: const Center(child: Text('❌ Không tìm thấy nhân viên')),
       );
     }
 
-    // --- Tính tổng tiền đã nhận ---
     double tongTienDaNhan = nhanVien!.workDays.fold(
       0,
       (prev, wd) => prev + (nhanVien!.luongTheoGio * wd.soGio),
     );
 
-    return Scaffold(
-      appBar: AppBar(title: Text('Chi tiết ${nhanVien!.hoTen}')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: ListView(
-          children: [
-            Center(
-              child: GestureDetector(
-                onTap: () {
-                  if (nhanVien!.anhDaiDien != null) {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => XemAnhScreen(
-                          imageUrl:
-                              '${ApiConfig.host}/uploads/${nhanVien!.anhDaiDien}',
-                          heroTag: 'avatar_${nhanVien!.id}',
+    // ✅ 3. Bọc Scaffold bằng WillPopScope để xử lý nút back vật lý
+    return WillPopScope(
+      onWillPop: () async {
+        Navigator.pop(context, _hasChanged);
+        return false;
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('Chi tiết ${nhanVien!.hoTen}'),
+          // ✅ 4. Xử lý nút back trên AppBar
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context, _hasChanged),
+          ),
+        ),
+        body: Padding(
+          padding: const EdgeInsets.all(16),
+          child: ListView(
+            children: [
+              Center(
+                child: GestureDetector(
+                  onTap: () {
+                    if (nhanVien!.anhDaiDien != null) {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => XemAnhScreen(
+                            imageUrl: ApiService.getAnhUrl(
+                              nhanVien!.anhDaiDien,
+                            ),
+                            heroTag: 'avatar_${nhanVien!.id}',
+                          ),
                         ),
+                      );
+                    }
+                  },
+                  child: Hero(
+                    tag: 'avatar_${nhanVien!.id}',
+                    child: CircleAvatar(
+                      radius: 60,
+                      backgroundImage: nhanVien!.anhDaiDien != null
+                          ? NetworkImage(
+                              ApiService.getAnhUrl(nhanVien!.anhDaiDien),
+                            )
+                          : null,
+                      child: nhanVien!.anhDaiDien == null
+                          ? const Icon(Icons.person, size: 60)
+                          : null,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text('📞 SĐT: ${nhanVien!.soDienThoai}'),
+              const SizedBox(height: 8),
+              ElevatedButton(
+                onPressed: () {
+                  if (nhanVien!.soDienThoai != null &&
+                      nhanVien!.soDienThoai!.isNotEmpty) {
+                    _goiDienThoai(nhanVien!.soDienThoai!);
+                  } else {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Nhân viên chưa có số điện thoại'),
                       ),
                     );
                   }
                 },
-                child: Hero(
-                  tag: 'avatar_${nhanVien!.id}',
-                  child: CircleAvatar(
-                    radius: 60,
-                    backgroundImage: nhanVien!.anhDaiDien != null
-                        ? NetworkImage(
-                            '${ApiConfig.host}/uploads/${nhanVien!.anhDaiDien}',
-                          )
-                        : null,
-                    child: nhanVien!.anhDaiDien == null
-                        ? const Icon(Icons.person, size: 60)
-                        : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 28,
+                    vertical: 14,
                   ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 4,
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: const [
+                    Icon(Icons.phone, color: Colors.white, size: 22),
+                    SizedBox(width: 8),
+                    Text(
+                      'GỌI NGAY',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 18,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-
-            const SizedBox(height: 16),
-            Text('📞 SĐT: ${nhanVien!.soDienThoai}'),
-            const SizedBox(height: 8),
-            ElevatedButton(
-              onPressed: () {
-                if (nhanVien!.soDienThoai != null &&
-                    nhanVien!.soDienThoai!.isNotEmpty) {
-                  _goiDienThoai(nhanVien!.soDienThoai!);
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('Nhân viên chưa có số điện thoại'),
+              const SizedBox(height: 8),
+              Text('🧰 Chức vụ: ${nhanVien!.chucVu}'),
+              Text('⏱️ Tổng giờ đã chấm: ${nhanVien!.tongSoGioDaChamCong}'),
+              Text('💰 Tổng tiền đã nhận: ${_formatVND(tongTienDaNhan)}'),
+              Text('📅 Tổng số buổi: ${nhanVien!.workDays.length}'),
+              const Divider(),
+              ElevatedButton.icon(
+                onPressed: _themNgayLam,
+                icon: const Icon(Icons.add),
+                label: const Text('Thêm ngày làm'),
+              ),
+              const SizedBox(height: 12),
+              Column(
+                children: nhanVien!.workDays.map((wd) {
+                  return ListTile(
+                    title: Text(DateFormat('dd/MM/yyyy').format(wd.ngay)),
+                    subtitle: Text(
+                      '${wd.soGio} giờ • ${_formatVND(nhanVien!.luongTheoGio * wd.soGio)}',
+                    ),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.edit, color: Colors.blue),
+                          onPressed: () => _suaSoGio(wd),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () => _xoaWorkDay(wd),
+                        ),
+                      ],
                     ),
                   );
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green,
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 28,
-                  vertical: 14,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                elevation: 4,
+                }).toList(),
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: const [
-                  Icon(Icons.phone, color: Colors.white, size: 22),
-                  SizedBox(width: 8),
-                  Text(
-                    'GỌI NGAY',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                      letterSpacing: 1.2,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 8),
-            Text('🧰 Chức vụ: ${nhanVien!.chucVu}'),
-            Text('⏱️ Tổng giờ đã chấm: ${nhanVien!.tongSoGioDaChamCong}'),
-            Text('💰 Tổng tiền đã nhận: ${_formatVND(tongTienDaNhan)}'),
-            Text('📅 Tổng số buổi: ${nhanVien!.workDays.length}'),
-            const Divider(),
-            ElevatedButton.icon(
-              onPressed: _themNgayLam,
-              icon: const Icon(Icons.add),
-              label: const Text('Thêm ngày làm'),
-            ),
-            const SizedBox(height: 12),
-            Column(
-              children: nhanVien!.workDays.map((wd) {
-                return ListTile(
-                  title: Text(DateFormat('dd/MM/yyyy').format(wd.ngay)),
-                  subtitle: Text(
-                    '${wd.soGio} giờ • ${_formatVND(nhanVien!.luongTheoGio * wd.soGio)}',
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit, color: Colors.blue),
-                        onPressed: () => _suaSoGio(wd),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.delete, color: Colors.red),
-                        onPressed: () => _xoaWorkDay(wd),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+            ],
+          ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _suaNhanVien,
-        child: const Icon(Icons.edit),
+        floatingActionButton: FloatingActionButton(
+          onPressed: _suaNhanVien,
+          child: const Icon(Icons.edit),
+        ),
       ),
     );
   }
