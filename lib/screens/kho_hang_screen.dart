@@ -2,19 +2,20 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_code_tools/qr_code_tools.dart';
 
 import '../models/khohang.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import 'chi_tiet_kho_hang_screen.dart';
 import 'them_kho_hang_screen.dart';
-import 'danh_sach_nhan_vien_screen.dart';
-import 'hoa_don_screen.dart';
-import '../main.dart';
 
 class KhoHangScreen extends StatefulWidget {
+  const KhoHangScreen({super.key});
+
   @override
-  _KhoHangScreenState createState() => _KhoHangScreenState();
+  State<KhoHangScreen> createState() => _KhoHangScreenState();
 }
 
 class _KhoHangScreenState extends State<KhoHangScreen>
@@ -28,7 +29,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
   int _tongHoatDong = 0;
   int _tongDaXuat = 0;
 
-  int _currentIndex = 2; // 🔹 index của tab "Kho Hàng"
+  final int _currentIndex = 2;
 
   final MobileScannerController _scannerController = MobileScannerController();
 
@@ -39,23 +40,43 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     _loadDanhSach();
   }
 
-  // ====== LẤY DANH SÁCH KHO ======
-  Future<void> _loadDanhSach() async {
-    setState(() => _isLoading = true);
-    final ds = await ApiService.layDanhSachKhoHang();
-    setState(() {
-      _danhSachKho = ds;
-      _tongHoatDong = ds.where((k) => k.trangThai == "Hoạt động").length;
-      _tongDaXuat = ds.where((k) => k.trangThai == "Đã xuất").length;
-      _applySearch();
-      _isLoading = false;
-    });
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _scannerController.dispose();
+    super.dispose();
   }
 
-  // ====== LỌC TÌM KIẾM ======
+  Future<void> _loadDanhSach() async {
+    if (!mounted) return;
+    setState(() => _isLoading = true);
+    await Future.wait([
+      ApiService.layDanhSachKhoHang().then((ds) {
+        if (mounted) {
+          setState(() {
+            _danhSachKho = ds;
+            _tongHoatDong = ds.where((k) => k.trangThai == "Hoạt động").length;
+            _tongDaXuat = ds.where((k) => k.trangThai == "Đã xuất").length;
+            _applySearch();
+          });
+        }
+      }),
+      Provider.of<NotificationService>(
+        context,
+        listen: false,
+      ).loadNotifications(),
+    ]);
+
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
   void _applySearch() {
     if (_searchText.isEmpty) {
-      _filteredKho = _danhSachKho;
+      _filteredKho = List.from(_danhSachKho);
     } else {
       _filteredKho = _danhSachKho
           .where(
@@ -67,7 +88,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     }
   }
 
-  // ====== XÓA MỘT KHO ======
   Future<void> _xoaKhoHang(int id) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -89,11 +109,10 @@ class _KhoHangScreenState extends State<KhoHangScreen>
 
     if (confirm == true) {
       await ApiService.xoaKhoHang(id);
-      _loadDanhSach();
+      await _loadDanhSach();
     }
   }
 
-  // ====== XÓA TOÀN BỘ KHO ĐÃ XUẤT ======
   Future<void> _xoaTatCaLichSu() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -117,7 +136,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
       for (var kho in _danhSachKho.where((k) => k.trangThai == "Đã xuất")) {
         await ApiService.xoaKhoHang(kho.id);
       }
-      _loadDanhSach();
+      await _loadDanhSach();
     }
   }
 
@@ -126,10 +145,9 @@ class _KhoHangScreenState extends State<KhoHangScreen>
   String _formatCurrency(num? value) {
     if (value == null) return "0 đ";
     final formatter = NumberFormat("#,###", "vi_VN");
-    return "${formatter.format(value)} đ";
+    return "${formatter.format(value)} VND";
   }
 
-  // ====== QUÉT QR BẰNG CAMERA ======
   Future<void> _moCameraQuetQR() async {
     await showDialog(
       context: context,
@@ -182,7 +200,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                         );
                         await ApiService.themHoacSuaKhoHang(khoMoi);
                         await _loadDanhSach();
-
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text("✅ Đã tạo kho mới: $tenHang"),
@@ -190,6 +208,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                           ),
                         );
                       } else {
+                        if (!context.mounted) return;
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
                             content: Text("⚠️ Kho '$tenHang' đã tồn tại!"),
@@ -198,6 +217,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                         );
                       }
                     } catch (e) {
+                      if (!context.mounted) return;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
                           content: Text("❌ Lỗi khi đọc mã QR: $e"),
@@ -253,7 +273,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     );
   }
 
-  // ====== QUÉT TỪ ẢNH ======
   Future<void> _quetTuAnh() async {
     final picker = ImagePicker();
     final picked = await picker.pickImage(source: ImageSource.gallery);
@@ -281,27 +300,30 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           );
           await ApiService.themHoacSuaKhoHang(khoMoi);
           await _loadDanhSach();
+          if (!context.mounted) return;
           ScaffoldMessenger.of(
             context,
           ).showSnackBar(SnackBar(content: Text("✅ Đã tạo kho mới: $tenHang")));
         } else {
+          if (!context.mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text("⚠️ Kho '$tenHang' đã tồn tại!")),
           );
         }
       } else {
+        if (!context.mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Không tìm thấy mã QR trong ảnh")),
         );
       }
     } catch (e) {
+      if (!context.mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Lỗi khi quét ảnh: $e")));
     }
   }
 
-  // ====== GIAO DIỆN CHÍNH ======
   @override
   Widget build(BuildContext context) {
     final today = DateFormat("dd/MM/yyyy").format(DateTime.now());
@@ -309,7 +331,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     return Scaffold(
       body: Column(
         children: [
-          // ===== HEADER CÓ LOGO =====
           Container(
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(16, 40, 16, 12),
@@ -327,7 +348,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Header với logo và nút QR
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
@@ -354,6 +374,52 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                     ),
                     Row(
                       children: [
+                        Consumer<NotificationService>(
+                          builder: (context, service, child) {
+                            return Stack(
+                              children: [
+                                IconButton(
+                                  onPressed: () {
+                                    Navigator.pushNamed(
+                                      context,
+                                      '/notifications',
+                                    );
+                                  },
+                                  icon: const Icon(
+                                    Icons.notifications_outlined,
+                                    color: Colors.white,
+                                    size: 30,
+                                  ),
+                                  tooltip: 'Thông báo',
+                                ),
+                                if (service.unreadCount > 0)
+                                  Positioned(
+                                    right: 8,
+                                    top: 8,
+                                    child: Container(
+                                      padding: const EdgeInsets.all(2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.red,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      constraints: const BoxConstraints(
+                                        minWidth: 16,
+                                        minHeight: 16,
+                                      ),
+                                      child: Text(
+                                        '${service.unreadCount}',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 10,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
                         IconButton(
                           icon: const Icon(
                             Icons.qr_code_2,
@@ -413,8 +479,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
               ],
             ),
           ),
-
-          // ===== TAB =====
           Material(
             color: Colors.white,
             child: TabBar(
@@ -446,8 +510,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
               ],
             ),
           ),
-
-          // ===== DANH SÁCH =====
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
@@ -458,33 +520,41 @@ class _KhoHangScreenState extends State<KhoHangScreen>
           ),
         ],
       ),
-
       floatingActionButton: FloatingActionButton(
         backgroundColor: const Color(0xFF4A00E0),
         child: const Icon(Icons.add, color: Colors.white),
         onPressed: () async {
           final result = await Navigator.push(
             context,
-            MaterialPageRoute(builder: (_) => ThemKhoHangScreen()),
+            MaterialPageRoute(builder: (_) => const ThemKhoHangScreen()),
           );
-          if (result == true) _loadDanhSach();
+          if (result == true) await _loadDanhSach();
         },
       ),
-
-      // ===== THANH TASKBAR DƯỚI =====
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: const Color(0xFF4A00E0),
         unselectedItemColor: Colors.grey,
         type: BottomNavigationBarType.fixed,
         onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (index == 0)
-            Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
-          if (index == 1) Navigator.pushReplacementNamed(context, '/hoa-don');
-          if (index == 2) Navigator.pushReplacementNamed(context, '/kho-hang');
-          if (index == 3) Navigator.pushReplacementNamed(context, '/doanh-thu');
-          if (index == 4) Navigator.pushReplacementNamed(context, '/home');
+          if (index == _currentIndex) return;
+          switch (index) {
+            case 0:
+              Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
+              break;
+            case 1:
+              Navigator.pushReplacementNamed(context, '/hoa-don');
+              break;
+            case 2:
+              // Current screen
+              break;
+            case 3:
+              Navigator.pushReplacementNamed(context, '/doanh-thu');
+              break;
+            case 4:
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+          }
         },
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
@@ -506,7 +576,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     );
   }
 
-  // ===== Ô THỐNG KÊ =====
   Widget _buildAnimatedBox(String title, int count, Color color) {
     return Expanded(
       child: Container(
@@ -540,7 +609,6 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     );
   }
 
-  // ===== DANH SÁCH KHO =====
   Widget _buildList(String trangThai) {
     final ds = _filteredKho.where((k) => k.trangThai == trangThai).toList();
     if (ds.isEmpty) return const Center(child: Text("Không có dữ liệu"));
@@ -571,7 +639,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                     builder: (_) => ChiTietKhoHangScreen(kho: kho),
                   ),
                 );
-                if (result != null) _loadDanhSach();
+                if (result != null) await _loadDanhSach();
               },
               borderRadius: BorderRadius.circular(12),
               child: Padding(
@@ -672,7 +740,7 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                               builder: (_) => ThemKhoHangScreen(kho: kho),
                             ),
                           );
-                          if (result == true) _loadDanhSach();
+                          if (result == true) await _loadDanhSach();
                         },
                       ),
                   ],

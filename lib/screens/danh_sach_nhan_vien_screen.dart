@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+
 import '../models/nhanvien.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import '../api_config.dart';
 import 'them_nhan_vien_screen.dart';
 import 'chi_tiet_nhan_vien_screen.dart';
-import '../main.dart';
 
 class DanhSachNhanVienScreen extends StatefulWidget {
   const DanhSachNhanVienScreen({Key? key}) : super(key: key);
@@ -20,7 +22,7 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
   bool isLoading = true;
   final NumberFormat numberFormat = NumberFormat('#,###', 'vi_VN');
   final TextEditingController _searchController = TextEditingController();
-  int _currentIndex = 0; // Giả sử screen này là tab đầu tiên
+  final int _currentIndex = 0;
 
   @override
   void initState() {
@@ -43,11 +45,23 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
   Future<void> _loadDanhSach() async {
     if (!mounted) return;
     setState(() => isLoading = true);
-    final list = await ApiService.layDanhSachNhanVien() ?? [];
+    await Future.wait([
+      ApiService.layDanhSachNhanVien().then((list) {
+        if (mounted) {
+          setState(() {
+            danhSachNhanVien = list ?? [];
+            _locNhanVien(_searchController.text);
+          });
+        }
+      }),
+      Provider.of<NotificationService>(
+        context,
+        listen: false,
+      ).loadNotifications(),
+    ]);
+
     if (mounted) {
       setState(() {
-        danhSachNhanVien = list;
-        _locNhanVien(_searchController.text); // Áp dụng lại bộ lọc
         isLoading = false;
       });
     }
@@ -77,20 +91,16 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
     );
   }
 
-  // ✅ SỬA LẠI HÀM NÀY
   Future<void> _themNhanVien() async {
     final result = await Navigator.push<NhanVien>(
       context,
       MaterialPageRoute(builder: (_) => const ThemNhanVienScreen()),
     );
-    // Nếu màn hình Thêm trả về kết quả (tức là thêm thành công),
-    // thì tải lại toàn bộ danh sách để cập nhật.
     if (result != null) {
-      _loadDanhSach();
+      await _loadDanhSach();
     }
   }
 
-  // ✅ SỬA LẠI HÀM NÀY
   Future<void> _xoaNhanVien(NhanVien nv) async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -114,9 +124,7 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
 
     final deleted = await ApiService.xoaNhanVien(nv.id);
     if (deleted) {
-      // Sau khi API xóa thành công, tải lại danh sách từ server
-      // để đảm bảo dữ liệu luôn đồng bộ.
-      _loadDanhSach();
+      await _loadDanhSach();
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -151,15 +159,9 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(
-              16,
-              50,
-              16,
-              20,
-            ), // Tăng padding top
+            padding: const EdgeInsets.fromLTRB(16, 50, 16, 20),
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 colors: [Color(0xFF6200EE), Color(0xFF8E2DE2)],
@@ -206,22 +208,66 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                     ],
                   ),
                 ),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.asset(
-                    "assets/icon/app_icon.png",
-                    width: 60,
-                    height: 60,
-                    fit: BoxFit.cover,
-                  ),
+                Row(
+                  children: [
+                    Consumer<NotificationService>(
+                      builder: (context, service, child) {
+                        return Stack(
+                          children: [
+                            IconButton(
+                              onPressed: () {
+                                Navigator.pushNamed(context, '/notifications');
+                              },
+                              icon: const Icon(
+                                Icons.notifications_outlined,
+                                color: Colors.white,
+                                size: 30,
+                              ),
+                              tooltip: 'Thông báo',
+                            ),
+                            if (service.unreadCount > 0)
+                              Positioned(
+                                right: 8,
+                                top: 8,
+                                child: Container(
+                                  padding: const EdgeInsets.all(2),
+                                  decoration: BoxDecoration(
+                                    color: Colors.red,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  constraints: const BoxConstraints(
+                                    minWidth: 16,
+                                    minHeight: 16,
+                                  ),
+                                  child: Text(
+                                    '${service.unreadCount}',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
+                      },
+                    ),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.asset(
+                        "assets/icon/app_icon.png",
+                        width: 80,
+                        height: 80,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
           ),
-
           const SizedBox(height: 12),
-
-          // Thanh tiêu đề + tìm kiếm
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Column(
@@ -259,8 +305,6 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
               ],
             ),
           ),
-
-          // Danh sách nhân viên
           Expanded(
             child: isLoading
                 ? const Center(
@@ -293,11 +337,8 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
                                       ChiTietNhanVienScreen(nhanVienId: nv.id),
                                 ),
                               );
-
-                              // Nếu màn hình Chi tiết trả về true (tức là có thay đổi)
-                              // thì tải lại danh sách.
                               if (needReload == true) {
-                                _loadDanhSach();
+                                await _loadDanhSach();
                               }
                             },
                             child: Padding(
@@ -420,12 +461,24 @@ class _DanhSachNhanVienScreenState extends State<DanhSachNhanVienScreen> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) {
-          setState(() => _currentIndex = index);
-          if (index == 0) return; // Đã ở trang này rồi
-          if (index == 1) Navigator.pushReplacementNamed(context, '/hoa-don');
-          if (index == 2) Navigator.pushReplacementNamed(context, '/kho-hang');
-          if (index == 3) Navigator.pushReplacementNamed(context, '/doanh-thu');
-          if (index == 4) Navigator.pushReplacementNamed(context, '/home');
+          if (index == _currentIndex) return;
+          switch (index) {
+            case 0:
+              // Current screen
+              break;
+            case 1:
+              Navigator.pushReplacementNamed(context, '/hoa-don');
+              break;
+            case 2:
+              Navigator.pushReplacementNamed(context, '/kho-hang');
+              break;
+            case 3:
+              Navigator.pushReplacementNamed(context, '/doanh-thu');
+              break;
+            case 4:
+              Navigator.pushReplacementNamed(context, '/home');
+              break;
+          }
         },
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF6200EE),

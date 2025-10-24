@@ -4,6 +4,11 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
+// Thêm các import này ở đầu file
+import 'package:provider/provider.dart';
+import 'services/notification_service.dart';
+import 'screens/notification_screen.dart';
+
 import 'screens/account_settings_screen.dart';
 import 'screens/doanh_thu_screen.dart';
 import 'screens/danh_sach_nhan_vien_screen.dart';
@@ -24,7 +29,13 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConfig.init();
 
-  runApp(const QuanLyXuongApp());
+  // ✨ Bọc ứng dụng của bạn bằng ChangeNotifierProvider
+  runApp(
+    ChangeNotifierProvider(
+      create: (context) => NotificationService(),
+      child: const QuanLyXuongApp(),
+    ),
+  );
   configLoading();
 }
 
@@ -60,6 +71,7 @@ class QuanLyXuongApp extends StatelessWidget {
             primaryColor: const Color(0xFF4A00E0),
             colorScheme: ColorScheme.fromSwatch().copyWith(
               secondary: const Color(0xFF8E2DE2),
+              background: const Color(0xFFF4F6FD),
             ),
           ),
           debugShowCheckedModeBanner: false,
@@ -105,6 +117,10 @@ class QuanLyXuongApp extends StatelessWidget {
       case '/doanh-thu':
         page = const DoanhThuScreen();
         break;
+      // ✨ Thêm route cho màn hình thông báo
+      case '/notifications':
+        page = const NotificationScreen();
+        break;
       default:
         page = const SplashScreen();
     }
@@ -140,24 +156,40 @@ class SplashScreen extends StatefulWidget {
 }
 
 class _SplashScreenState extends State<SplashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late AnimationController _controller;
-  late Animation<double> _fadeIn;
+  late Animation<double> _scaleAnimation;
+  late Animation<double> _fadeAnimation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 1500),
     );
-    _fadeIn = CurvedAnimation(parent: _controller, curve: Curves.easeIn);
+
+    _scaleAnimation = Tween<double>(
+      begin: 0.5,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
+
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _controller, curve: const Interval(0.5, 1.0)),
+    );
+
     _controller.forward();
     _checkToken();
   }
 
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
   Future<void> _checkToken() async {
-    await Future.delayed(const Duration(seconds: 2));
+    await Future.delayed(const Duration(seconds: 3));
     final prefs = await SharedPreferences.getInstance();
     final token = prefs.getString('token');
 
@@ -172,41 +204,52 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: FadeTransition(
-        opacity: _fadeIn,
-        child: Container(
-          width: double.infinity,
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-            ),
+      body: Container(
+        width: double.infinity,
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
           ),
-          child: Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            ScaleTransition(
+              scale: _scaleAnimation,
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: Image.asset(
                   "assets/icon/app_icon.png",
-                  width: 180,
-                  height: 180,
+                  width: 150,
+                  height: 150,
                 ),
-                const SizedBox(height: 20),
-                const Text(
-                  "VIETFLOW",
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 32,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 2,
-                  ),
-                ),
-                const SizedBox(height: 30),
-                const CircularProgressIndicator(color: Colors.white),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(height: 20),
+            FadeTransition(
+              opacity: _fadeAnimation,
+              child: const Text(
+                "VIETFLOW",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 32,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 40),
+            const SizedBox(
+              width: 24,
+              height: 24,
+              child: CircularProgressIndicator(
+                color: Colors.white,
+                strokeWidth: 2.5,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -221,10 +264,11 @@ class WelcomeScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
+        elevation: 0,
         backgroundColor: const Color(0xFF4A00E0),
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
+            icon: const Icon(Icons.settings, color: Colors.white),
             tooltip: "Cài đặt API",
             onPressed: () => Navigator.pushNamed(context, '/cai-dat-api'),
           ),
@@ -304,11 +348,22 @@ class _HomeScreenState extends State<HomeScreen> {
   int _soSanPham = 0;
   int _soHoaDon = 0;
   double _tongDoanhThuThang = 0;
+  String _userName = "User";
 
   @override
   void initState() {
     super.initState();
     _loadData();
+    _loadUserName();
+  }
+
+  Future<void> _loadUserName() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _userName = prefs.getString("userName") ?? "User";
+      });
+    }
   }
 
   Future<void> _loadData() async {
@@ -318,6 +373,11 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadSoKhoHang(),
       _loadSoHoaDon(),
       _loadDoanhThu(),
+      // Tải thông báo khi tải lại dữ liệu chính
+      Provider.of<NotificationService>(
+        context,
+        listen: false,
+      ).loadNotifications(),
     ]);
     EasyLoading.dismiss();
   }
@@ -382,143 +442,103 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  String getToday() => DateFormat("dd/MM/yyyy").format(DateTime.now());
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF8E2DE2), Color(0xFF4A00E0)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
+      backgroundColor: Theme.of(context).colorScheme.background,
+      body: SafeArea(
+        child: Column(
+          children: [
+            _buildHeader(),
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: _loadData,
+                color: Theme.of(context).primaryColor,
+                child: GridView.count(
+                  padding: const EdgeInsets.all(16),
+                  crossAxisCount: 2,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
+                  childAspectRatio: 0.9,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Chào buổi sáng,",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          getToday(),
-                          style: const TextStyle(
-                            color: Colors.white70,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
+                    _buildCard(
+                      icon: Icons.people_outline,
+                      title: "Nhân Viên",
+                      subtitle: "$_soNhanVien nhân viên",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/danh-sach-nhan-vien',
+                      ).then((_) => _loadSoNhanVien()),
                     ),
-                    // ✅ Logo gọn ở góc phải
-                    Image.asset(
-                      "assets/icon/app_icon.png",
-                      width: 100,
-                      height: 100,
+                    _buildCard(
+                      icon: Icons.receipt_long_outlined,
+                      title: "Hóa Đơn",
+                      subtitle: "$_soHoaDon hóa đơn",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/hoa-don',
+                      ).then((_) => _loadSoHoaDon()),
+                    ),
+                    _buildCard(
+                      icon: Icons.inventory_2_outlined,
+                      title: "Kho Hàng",
+                      subtitle: "$_soSanPham sản phẩm",
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/kho-hang',
+                      ).then((_) => _loadSoKhoHang()),
+                    ),
+                    _buildCard(
+                      icon: Icons.bar_chart_outlined,
+                      title: "Doanh Thu",
+                      subtitle: NumberFormat.currency(
+                        locale: 'vi_VN',
+                        symbol: '₫',
+                      ).format(_tongDoanhThuThang),
+                      onTap: () => Navigator.pushNamed(
+                        context,
+                        '/doanh-thu',
+                      ).then((_) => _loadDoanhThu()),
                     ),
                   ],
                 ),
               ),
-
-              const SizedBox(height: 10),
-              Expanded(
-                child: Container(
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(30),
-                    ),
-                  ),
-                  child: ListView(
-                    padding: const EdgeInsets.all(16),
-                    children: [
-                      _buildCard(
-                        icon: Icons.people,
-                        title: "Nhân Viên",
-                        subtitle: "$_soNhanVien nhân viên",
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/danh-sach-nhan-vien',
-                        ).then((_) => _loadSoNhanVien()),
-                      ),
-                      _buildCard(
-                        icon: Icons.receipt,
-                        title: "Hóa Đơn",
-                        subtitle: "$_soHoaDon hóa đơn",
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/hoa-don',
-                        ).then((_) => _loadSoHoaDon()),
-                      ),
-                      _buildCard(
-                        icon: Icons.warehouse,
-                        title: "Kho Hàng",
-                        subtitle: "$_soSanPham sản phẩm",
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/kho-hang',
-                        ).then((_) => _loadSoKhoHang()),
-                      ),
-                      _buildCard(
-                        icon: Icons.bar_chart,
-                        title: "Doanh Thu",
-                        subtitle:
-                            "Tháng ${DateTime.now().month}: ${NumberFormat.currency(locale: 'vi_VN', symbol: '₫').format(_tongDoanhThuThang)}",
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          '/doanh-thu',
-                        ).then((_) => _loadDoanhThu()),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
-      // ✅ Taskbar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) async {
           setState(() => _currentIndex = index);
-          if (index == 0)
+          if (index == 0) {
             await Navigator.pushNamed(context, '/danh-sach-nhan-vien');
-          if (index == 1) await Navigator.pushNamed(context, '/hoa-don');
-          if (index == 2) await Navigator.pushNamed(context, '/kho-hang');
-          if (index == 3) await Navigator.pushNamed(context, '/doanh-thu');
-          if (index == 4) {
+          } else if (index == 1) {
+            await Navigator.pushNamed(context, '/hoa-don');
+          } else if (index == 2) {
+            await Navigator.pushNamed(context, '/kho-hang');
+          } else if (index == 3) {
+            await Navigator.pushNamed(context, '/doanh-thu');
+          } else if (index == 4) {
             showModalBottomSheet(
               context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
               ),
               builder: (context) => const AccountSheet(),
             );
           }
+          Future.delayed(const Duration(milliseconds: 100), () {
+            if (mounted) setState(() => _currentIndex = 0);
+          });
         },
         backgroundColor: Colors.white,
         selectedItemColor: const Color(0xFF4A00E0),
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: Colors.grey.shade500,
         type: BottomNavigationBarType.fixed,
+        elevation: 5,
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
           BottomNavigationBarItem(icon: Icon(Icons.receipt), label: "Hóa Đơn"),
@@ -539,6 +559,93 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  // ✨ Widget Header được cập nhật với chức năng thông báo
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+      ),
+      child: Row(
+        children: [
+          const CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.white24,
+            child: Icon(Icons.person, size: 28, color: Colors.white),
+          ),
+          const SizedBox(width: 12),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Chào buổi sáng,",
+                style: TextStyle(color: Colors.white70, fontSize: 14),
+              ),
+              Text(
+                _userName,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Image.asset("assets/icon/app_icon.png", width: 80, height: 80),
+          // ✨ Sử dụng Consumer để lắng nghe thay đổi và rebuild chỉ icon chuông
+          Consumer<NotificationService>(
+            builder: (context, service, child) {
+              return Stack(
+                children: [
+                  IconButton(
+                    onPressed: () {
+                      Navigator.pushNamed(context, '/notifications');
+                    },
+                    icon: const Icon(
+                      Icons.notifications_outlined,
+                      color: Colors.white,
+                    ),
+                    tooltip: 'Thông báo',
+                  ),
+                  if (service.unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 16,
+                          minHeight: 16,
+                        ),
+                        child: Text(
+                          '${service.unreadCount}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildCard({
     required IconData icon,
     required String title,
@@ -548,55 +655,72 @@ class _HomeScreenState extends State<HomeScreen> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        margin: const EdgeInsets.only(bottom: 16),
-        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.grey[50],
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: const [
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(20),
+          boxShadow: [
             BoxShadow(
-              color: Colors.black12,
-              blurRadius: 6,
-              offset: Offset(0, 3),
+              color: Colors.grey.withOpacity(0.1),
+              spreadRadius: 2,
+              blurRadius: 10,
+              offset: const Offset(0, 5),
             ),
           ],
         ),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 28,
-              backgroundColor: const Color(0xFF4A00E0).withOpacity(0.1),
-              child: Icon(icon, size: 28, color: const Color(0xFF4A00E0)),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Theme.of(context).primaryColor.withOpacity(0.1),
+                ),
+                child: Icon(
+                  icon,
+                  size: 28,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+              Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     title,
                     style: const TextStyle(
-                      fontSize: 18,
+                      fontSize: 16,
                       fontWeight: FontWeight.bold,
+                      color: Colors.black87,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     subtitle,
-                    style: const TextStyle(color: Colors.grey, fontSize: 14),
+                    style: TextStyle(
+                      fontSize: title == 'Doanh Thu' ? 15 : 14,
+                      fontWeight: title == 'Doanh Thu'
+                          ? FontWeight.w600
+                          : FontWeight.normal,
+                      color: title == 'Doanh Thu'
+                          ? const Color(0xFF4A00E0)
+                          : Colors.grey.shade600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ],
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Colors.grey),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-/// ================== ACCOUNT SHEET ==================
 /// ================== ACCOUNT SHEET ==================
 class AccountSheet extends StatefulWidget {
   const AccountSheet({super.key});
@@ -629,7 +753,11 @@ class _AccountSheetState extends State<AccountSheet> {
     ApiService.token = null;
 
     if (mounted) {
-      Navigator.pushReplacementNamed(context, "/welcome");
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const WelcomeScreen()),
+        (route) => false,
+      );
     }
   }
 
@@ -646,7 +774,6 @@ class _AccountSheetState extends State<AccountSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // Avatar + Info
               CircleAvatar(
                 radius: 45,
                 backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
@@ -669,17 +796,19 @@ class _AccountSheetState extends State<AccountSheet> {
                 style: const TextStyle(fontSize: 14, color: Colors.grey),
               ),
               const SizedBox(height: 20),
-
-              // Menu Options
               _buildMenuItem(
-                icon: Icons.qr_code,
+                icon: Icons.qr_code_2,
                 title: "Mã QR",
-                onTap: () => Navigator.pushNamed(context, "/show-qr"),
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.pushNamed(context, "/show-qr");
+                },
               ),
               _buildMenuItem(
-                icon: Icons.settings,
+                icon: Icons.settings_outlined,
                 title: "Cài đặt tài khoản",
                 onTap: () async {
+                  Navigator.pop(context);
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -689,10 +818,7 @@ class _AccountSheetState extends State<AccountSheet> {
                   if (result == true) await _loadUser();
                 },
               ),
-
-              const Divider(height: 24),
-
-              // Logout Button
+              const Divider(height: 24, indent: 16, endIndent: 16),
               ElevatedButton.icon(
                 onPressed: _logout,
                 style: ElevatedButton.styleFrom(

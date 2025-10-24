@@ -1,10 +1,14 @@
+// lib/screens/them_nhan_vien_screen.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart'; // 👈 import thêm
 import '../models/nhanvien.dart';
 import '../services/api_service.dart';
-import '../api_config.dart'; // 👈 thêm dòng này để dùng ApiConfig
+import '../api_config.dart';
+import '../services/notification_service.dart'; // 👈 import thêm
 
 class ThemNhanVienScreen extends StatefulWidget {
   final NhanVien? nhanVien; // null = thêm, không null = sửa
@@ -53,10 +57,10 @@ class _ThemNhanVienScreenState extends State<ThemNhanVienScreen> {
     }
   }
 
+  // 👇 HÀM NÀY ĐÃ ĐƯỢC CẬP NHẬT 👇
   Future<void> luuNhanVien() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // Bỏ dấu phân cách
     String rawLuong = luongController.text
         .replaceAll('.', '')
         .replaceAll(',', '');
@@ -79,10 +83,26 @@ class _ThemNhanVienScreenState extends State<ThemNhanVienScreen> {
     if (!mounted) return;
 
     if (ketQua != null) {
+      // ✨ BẮT ĐẦU PHẦN THÊM MỚI ✨
+      // Chỉ tạo thông báo khi THÊM MỚI (không phải sửa)
+      if (widget.nhanVien == null) {
+        final notificationService = Provider.of<NotificationService>(
+          context,
+          listen: false,
+        );
+
+        await notificationService.addNotification(
+          title: 'Thêm nhân viên thành công',
+          body:
+              'Nhân viên mới \'${hoTenController.text}\' đã được thêm vào hệ thống.',
+        );
+      }
+      // ✨ KẾT THÚC PHẦN THÊM MỚI ✨
+
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Lưu thành công')));
-      // Trả về NhanVien vừa lưu để reload danh sách
+
       Future.microtask(() => Navigator.pop(context, ketQua));
     } else {
       ScaffoldMessenger.of(
@@ -112,11 +132,11 @@ class _ThemNhanVienScreenState extends State<ThemNhanVienScreen> {
                   backgroundImage: anhFile != null
                       ? FileImage(anhFile!)
                       : (widget.nhanVien?.anhDaiDien != null
-                            ? NetworkImage(
-                                    '${ApiConfig.host}/uploads/${widget.nhanVien!.anhDaiDien}', // 👈 sửa chỗ này
+                                ? NetworkImage(
+                                    '${ApiConfig.host}/uploads/${widget.nhanVien!.anhDaiDien}',
                                   )
-                                  as ImageProvider
-                            : null),
+                                : null)
+                            as ImageProvider?,
                   child: anhFile == null && widget.nhanVien?.anhDaiDien == null
                       ? const Icon(Icons.person, size: 50)
                       : null,

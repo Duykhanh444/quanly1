@@ -1,3 +1,4 @@
+// lib/screens/chi_tiet_kho_hang_screen.dart
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
@@ -5,10 +6,12 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:barcode_widget/barcode_widget.dart';
 import 'package:flutter/services.dart' show rootBundle;
-import '../utils/string_utils.dart'; // ✅ 1. Import file utility đã tạo
+import '../services/notification_service.dart';
+import '../utils/string_utils.dart';
 import '../models/khohang.dart';
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
@@ -42,10 +45,6 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     super.dispose();
   }
 
-  // =======================================================================
-  // CÁC HÀM LOGIC GIỮ NGUYÊN - KHÔNG THAY ĐỔI
-  // =======================================================================
-
   String _formatDate(DateTime? date) =>
       date == null ? "—" : DateFormat("dd-MM-yyyy").format(date);
 
@@ -68,11 +67,9 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     final kho = widget.kho;
     final dataQR = Uri(
       queryParameters: {
-        'tenHang': (kho.tenKho ?? '')
-            .toUnsignedVietnamese(), // Chuyển sang không dấu
+        'tenHang': (kho.tenKho ?? '').toUnsignedVietnamese(),
         'giaTri': (kho.giaTri ?? 0).toString(),
-        'ghiChu': (kho.ghiChu ?? '')
-            .toUnsignedVietnamese(), // Chuyển sang không dấu
+        'ghiChu': (kho.ghiChu ?? '').toUnsignedVietnamese(),
         'soLuong': '1',
       },
     ).query;
@@ -95,12 +92,9 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
     final qrPng = qrBytes!.buffer.asUint8List();
 
     final barcode = Barcode.code128();
-
-    // ✅ 2. Áp dụng hàm toUnsignedVietnamese() cho dữ liệu mã vạch
     final barcodeData = (kho.tenKho ?? '').toUnsignedVietnamese();
-
     final barcodeSvg = barcode.toSvg(
-      barcodeData, // Sử dụng dữ liệu đã chuyển đổi
+      barcodeData,
       width: 300,
       height: 80,
       drawText: true,
@@ -239,6 +233,16 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
                   final ok = await ApiService.themHoacSuaKhoHangJson(updated);
                   if (mounted) {
                     if (ok) {
+                      // ✨ KÍCH HOẠT THÔNG BÁO TẠI ĐÂY
+                      Provider.of<NotificationService>(
+                        context,
+                        listen: false,
+                      ).addNotification(
+                        title: 'Xuất Kho Thành Công',
+                        body:
+                            'Sản phẩm "${widget.kho.tenKho}" đã được xuất kho.',
+                      );
+
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text(
@@ -379,7 +383,6 @@ class _ChiTietKhoHangScreenState extends State<ChiTietKhoHangScreen>
                   const SizedBox(height: 16),
                   BarcodeWidget(
                     barcode: Barcode.code128(),
-                    // ✅ 3. Áp dụng hàm toUnsignedVietnamese() cho dữ liệu mã vạch
                     data: (kho.tenKho ?? '').toUnsignedVietnamese(),
                     width: 250,
                     height: 80,

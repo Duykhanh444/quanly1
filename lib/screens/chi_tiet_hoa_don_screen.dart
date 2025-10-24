@@ -6,18 +6,21 @@ import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
+import 'package:provider/provider.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 import 'bill_screen.dart';
 
 class ChiTietHoaDonScreen extends StatefulWidget {
-  final HoaDon hd;
+  // ✨ SỬA 1: Cho phép 'hd' có thể là null (khi tạo mới)
+  final HoaDon? hd;
   final VoidCallback? onDaThanhToan;
 
-  const ChiTietHoaDonScreen({Key? key, required this.hd, this.onDaThanhToan})
+  const ChiTietHoaDonScreen({Key? key, this.hd, this.onDaThanhToan})
     : super(key: key);
 
   @override
@@ -27,17 +30,44 @@ class ChiTietHoaDonScreen extends StatefulWidget {
 class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
   late HoaDon hd;
   bool _isLoading = true;
+  bool _isCreatingNew =
+      false; // Biến để xác định là đang tạo mới hay xem chi tiết
 
   @override
   void initState() {
     super.initState();
-    hd = widget.hd;
-    _fetchHoaDonDetails();
+    // ✨ SỬA 2: KIỂM TRA XEM ĐÂY LÀ TRƯỜNG HỢP TẠO MỚI HAY XEM CHI TIẾT
+    if (widget.hd == null) {
+      // ---- TRƯỜNG HỢP TẠO MỚI ----
+      setState(() {
+        _isCreatingNew = true;
+        // Tạo một hóa đơn rỗng với thông tin mặc định
+        hd = HoaDon(
+          id: 0,
+          maHoaDon:
+              "HD-${DateTime.now().millisecondsSinceEpoch}", // Tạo mã ngẫu nhiên
+          ngayLap: DateTime.now(),
+          tongTien: 0,
+          trangThai: "Chưa thanh toán",
+          items: [],
+        );
+        _isLoading = false; // Không cần tải gì cả, sẵn sàng để nhập liệu
+      });
+    } else {
+      // ---- TRƯỜNG HỢP XEM CHI TIẾT ----
+      _isCreatingNew = false;
+      hd = widget.hd!;
+      _fetchHoaDonDetails(); // Tải chi tiết như cũ
+    }
   }
 
+  // Hàm này giờ chỉ chạy khi xem chi tiết hóa đơn có sẵn
   Future<void> _fetchHoaDonDetails() async {
+    // Nếu đang tạo mới thì không chạy hàm này
+    if (_isCreatingNew) return;
+
     try {
-      final hoaDonChiTiet = await ApiService.layChiTietHoaDon(widget.hd.id);
+      final hoaDonChiTiet = await ApiService.layChiTietHoaDon(widget.hd!.id);
       if (mounted) {
         if (hoaDonChiTiet != null) {
           setState(() {
@@ -61,6 +91,10 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     }
   }
 
+  // ==========================================================
+  //     CÁC HÀM CÒN LẠI GIỮ NGUYÊN HOẶC CẬP NHẬT NHỎ
+  // ==========================================================
+
   String formatNumber(int number) =>
       NumberFormat("#,###", "vi_VN").format(number);
 
@@ -75,9 +109,11 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text("Chi tiết hóa đơn"),
+        // ✨ SỬA 3: Tiêu đề động
+        title: Text(_isCreatingNew ? "Tạo Hóa Đơn Mới" : "Chi tiết hóa đơn"),
         actions: [
-          if (!_isLoading && !_daThanhToan)
+          // Chỉ hiện nút xóa khi đang xem hóa đơn cũ và chưa thanh toán
+          if (!_isLoading && !_isCreatingNew && !_daThanhToan)
             IconButton(
               icon: const Icon(Icons.delete_outline, color: Colors.red),
               onPressed: _xoaHoaDon,
@@ -110,13 +146,14 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
                     ],
                   ),
                 ),
+                // Chỉ hiện nút "Lưu" và "Thanh toán" khi chưa thanh toán
                 if (!_daThanhToan) _buildActionButtons(),
               ],
             ),
-      // ✅ ĐÃ XÓA FLOATING ACTION BUTTON
     );
   }
 
+  // ... (Các hàm build UI như _buildHeaderCard, _buildSummaryCard, ... giữ nguyên)
   Widget _buildHeaderCard() {
     return Card(
       elevation: 2,
@@ -223,7 +260,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     );
   }
 
-  // ✅ CẬP NHẬT LẠI WIDGET NÀY
   Widget _buildItemList() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +275,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
                 fontSize: 14,
               ),
             ),
-            // ✅ THÊM NÚT "THÊM" VÀO ĐÂY
             if (!_daThanhToan)
               TextButton.icon(
                 onPressed: _themMatHang,
@@ -315,10 +350,9 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     );
   }
 
-  // ✅ CẬP NHẬT LẠI WIDGET NÀY
   Widget _buildActionButtons() {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24), // Thêm padding dưới
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
       decoration: BoxDecoration(
         color: Theme.of(context).cardColor,
         boxShadow: [
@@ -335,9 +369,9 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
           Expanded(
             child: ElevatedButton(
               onPressed: _luuHoaDonVaThoat,
-              child: const Text("Lưu thay đổi"),
+              child: const Text("Lưu"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6200EE), // ✅ Màu tím chủ đạo
+                backgroundColor: const Color(0xFF6200EE),
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -352,7 +386,7 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
               onPressed: _thanhToan,
               child: const Text("Thanh toán"),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green, // ✅ Màu xanh lá cây
+                backgroundColor: Colors.green,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
@@ -366,10 +400,92 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     );
   }
 
-  // ==========================================================
-  //                CÁC HÀM HELPER VÀ LOGIC CŨ
-  //   (Không cần thay đổi các hàm này, chỉ cần copy & paste)
-  // ==========================================================
+  // ... Các hàm logic ...
+  Future<void> _luuHoaDonVaThoat() async {
+    if (hd.loaiHoaDon == null || hd.loaiHoaDon!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vui lòng chọn loại hóa đơn")),
+      );
+      return;
+    }
+    if (hd.phuongThuc == null || hd.phuongThuc!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vui lòng chọn phương thức thanh toán")),
+      );
+      return;
+    }
+
+    hd.tinhTongTien();
+    final result = await ApiService.themHoacSuaHoaDon(hd);
+    if (result != null) {
+      if (mounted) {
+        // ✨ KÍCH HOẠT THÔNG BÁO KHI LƯU
+        Provider.of<NotificationService>(
+          context,
+          listen: false,
+        ).addNotification(
+          title: _isCreatingNew ? 'Tạo Hóa Đơn Mới' : 'Cập Nhật Hóa Đơn',
+          body: 'Hóa đơn mã "${result.maHoaDon}" đã được lưu thành công.',
+        );
+        Navigator.pop(context, result);
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Lưu hóa đơn thất bại, vui lòng thử lại"),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _thanhToan() async {
+    // ... code giữ nguyên
+    if (hd.phuongThuc == null || hd.phuongThuc!.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Vui lòng chọn phương thức thanh toán")),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => BillScreen(
+          hoaDon: hd,
+          phuongThuc: hd.phuongThuc!,
+          onConfirmPayment: () async {
+            setState(() => hd.trangThai = "Đã thanh toán");
+            final saved = await ApiService.themHoacSuaHoaDon(hd);
+            if (saved != null) {
+              Provider.of<NotificationService>(
+                context,
+                listen: false,
+              ).addNotification(
+                title: 'Thanh Toán Thành Công',
+                body: 'Hóa đơn mã "${saved.maHoaDon}" đã được thanh toán.',
+              );
+
+              if (mounted) Navigator.pop(context, saved);
+              widget.onDaThanhToan?.call();
+            } else {
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text("Thanh toán thất bại, vui lòng thử lại"),
+                  ),
+                );
+              }
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  // ... Các hàm helper, xóa, in, share, ... giữ nguyên không đổi
+  // (Tôi sẽ lược bỏ để code ngắn gọn, bạn chỉ cần giữ nguyên các hàm này trong file của bạn)
 
   Widget _buildInfoRow({
     required IconData icon,
@@ -607,70 +723,6 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
     }
   }
 
-  Future<void> _luuHoaDonVaThoat() async {
-    if (hd.loaiHoaDon == null || hd.loaiHoaDon!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng chọn loại hóa đơn")),
-      );
-      return;
-    }
-    if (hd.phuongThuc == null || hd.phuongThuc!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng chọn phương thức thanh toán")),
-      );
-      return;
-    }
-
-    hd.tinhTongTien();
-    final result = await ApiService.themHoacSuaHoaDon(hd);
-    if (result != null) {
-      if (mounted) Navigator.pop(context, result);
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Đã lưu hóa đơn")));
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Lưu hóa đơn thất bại, vui lòng thử lại")),
-      );
-    }
-  }
-
-  Future<void> _thanhToan() async {
-    if (hd.phuongThuc == null || hd.phuongThuc!.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Vui lòng chọn phương thức thanh toán")),
-      );
-      return;
-    }
-
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => BillScreen(
-          hoaDon: hd,
-          phuongThuc: hd.phuongThuc!,
-          onConfirmPayment: () async {
-            setState(() => hd.trangThai = "Đã thanh toán");
-            final saved = await ApiService.themHoacSuaHoaDon(hd);
-            if (saved != null) {
-              if (mounted) Navigator.pop(context, saved);
-              widget.onDaThanhToan?.call();
-              ScaffoldMessenger.of(
-                context,
-              ).showSnackBar(const SnackBar(content: Text("Đã thanh toán")));
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text("Thanh toán thất bại, vui lòng thử lại"),
-                ),
-              );
-            }
-          },
-        ),
-      ),
-    );
-  }
-
   Future<void> _xoaHoaDon() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -694,24 +746,21 @@ class _ChiTietHoaDonScreenState extends State<ChiTietHoaDonScreen> {
       final deleted = await ApiService.xoaHoaDon(hd.id);
       if (deleted) {
         if (mounted) Navigator.pop(context, null);
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Đã xóa hóa đơn")));
       } else {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text("Xóa hóa đơn thất bại")));
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(const SnackBar(content: Text("Xóa hóa đơn thất bại")));
+        }
       }
     }
   }
 
-  // PDF Generation - No changes needed
   Future<Uint8List> _generateHoaDonPdf() async {
     final pdf = pw.Document();
     final font = pw.Font.ttf(
       await rootBundle.load('assets/fonts/DejaVuSans.ttf'),
     );
-    // Chỉnh lại đường dẫn font cho đúng
     final fontBold = pw.Font.ttf(
       await rootBundle.load('assets/fonts/DejaVuSans-Bold.ttf'),
     );

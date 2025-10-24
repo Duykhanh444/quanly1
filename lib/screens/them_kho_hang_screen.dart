@@ -7,9 +7,11 @@ import 'package:path_provider/path_provider.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
 import 'package:pdf/pdf.dart';
+import 'package:provider/provider.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import '../models/khohang.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 
 class ThemKhoHangScreen extends StatefulWidget {
   final KhoHang? kho;
@@ -52,12 +54,10 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
     super.dispose();
   }
 
-  // 🔹 Xóa định dạng tiền tệ để lấy số gốc
   String _unFormatCurrency(String value) {
     return value.replaceAll('.', '').replaceAll(',', '');
   }
 
-  // 🧾 Xuất PDF có QR + Barcode
   Future<void> _xuatPDF(String data, String tenHang) async {
     final pdf = pw.Document();
 
@@ -114,7 +114,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
     await Printing.sharePdf(bytes: await pdf.save(), filename: "$tenHang.pdf");
   }
 
-  // 🔹 Tạo QR và xuất PDF
   void _taoQR() {
     if (_tenController.text.isEmpty || _giaTriController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -215,7 +214,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                           val == null || val.isEmpty ? "Nhập tên kho" : null,
                     ),
                     const SizedBox(height: 12),
-
                     TextFormField(
                       controller: _giaTriController,
                       decoration: const InputDecoration(
@@ -249,7 +247,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                           : null,
                     ),
                     const SizedBox(height: 12),
-
                     TextFormField(
                       controller: _ghiChuController,
                       decoration: const InputDecoration(
@@ -258,7 +255,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                       ),
                     ),
                     const SizedBox(height: 16),
-
                     ListTile(
                       leading: const Icon(
                         Icons.calendar_month,
@@ -282,7 +278,6 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                         }
                       },
                     ),
-
                     ListTile(
                       leading: const Icon(
                         Icons.local_shipping,
@@ -306,9 +301,7 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                         }
                       },
                     ),
-
                     const SizedBox(height: 24),
-
                     ElevatedButton.icon(
                       icon: const Icon(Icons.save, color: Colors.white),
                       label: const Text(
@@ -343,15 +336,31 @@ class _ThemKhoHangScreenState extends State<ThemKhoHangScreen> {
                                 : "Đã xuất",
                           );
 
-                          await ApiService.themHoacSuaKhoHang(kho);
-                          Navigator.pop(context, true);
+                          // Hàm này trả về một đối tượng KhoHang? chứ không phải bool
+                          final isSuccess = await ApiService.themHoacSuaKhoHang(
+                            kho,
+                          );
+
+                          // ✨ SỬA LẠI ĐIỀU KIỆN KIỂM TRA Ở DÒNG DƯỚI ĐÂY
+                          if (isSuccess != null && mounted) {
+                            bool isAdding = widget.kho == null;
+                            Provider.of<NotificationService>(
+                              context,
+                              listen: false,
+                            ).addNotification(
+                              title: isAdding
+                                  ? 'Thêm Kho Hàng Mới'
+                                  : 'Cập Nhật Kho Hàng',
+                              body:
+                                  'Sản phẩm "${kho.tenKho}" đã được ${isAdding ? "thêm" : "cập nhật"}.',
+                            );
+
+                            Navigator.pop(context, true);
+                          }
                         }
                       },
                     ),
-
                     const SizedBox(height: 20),
-
-                    // 🔘 Nút tạo QR (đã bỏ quét QR)
                     Center(
                       child: ElevatedButton.icon(
                         icon: const Icon(Icons.qr_code, color: Colors.white),

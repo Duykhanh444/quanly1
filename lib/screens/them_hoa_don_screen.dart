@@ -1,6 +1,9 @@
+// lib/screens/them_hoa_don_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../models/hoadon.dart';
 import '../services/api_service.dart';
+import '../services/notification_service.dart';
 
 class ThemHoaDonScreen extends StatefulWidget {
   const ThemHoaDonScreen({Key? key}) : super(key: key);
@@ -19,7 +22,6 @@ class _ThemHoaDonScreenState extends State<ThemHoaDonScreen> {
   @override
   void initState() {
     super.initState();
-    // mặc định lấy ngày hôm đó
     _ngayLap = DateTime.now();
   }
 
@@ -51,22 +53,31 @@ class _ThemHoaDonScreenState extends State<ThemHoaDonScreen> {
       return;
     }
 
-    // nếu chưa chọn ngày => lấy ngày hiện tại
     final ngayHoaDon = _ngayLap ?? DateTime.now();
 
     final hoaDonMoi = HoaDon(
-      id: 0, // nếu API tự sinh id thì để 0
+      id: 0,
       maHoaDon: _maHoaDonController.text.trim(),
       tongTien: int.tryParse(_tongTienController.text.trim()) ?? 0,
       ngayLap: ngayHoaDon,
       trangThai: _trangThai,
-      items: const [], // mặc định rỗng
+      items: const [],
     );
 
     try {
       final result = await ApiService.themHoaDon(hoaDonMoi);
       if (result != null) {
-        if (!mounted) return; // tránh lỗi nếu widget đã dispose
+        if (!mounted) return;
+
+        // ✨ KÍCH HOẠT THÔNG BÁO TẠI ĐÂY
+        Provider.of<NotificationService>(
+          context,
+          listen: false,
+        ).addNotification(
+          title: 'Tạo Hóa Đơn Mới',
+          body: 'Hóa đơn mã "${result.maHoaDon}" đã được tạo thành công.',
+        );
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text("Thêm hóa đơn thành công"),
