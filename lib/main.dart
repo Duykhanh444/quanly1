@@ -3,12 +3,16 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
-
-// Thêm các import này ở đầu file
 import 'package:provider/provider.dart';
+
+// ✨ Thêm các import này
+import 'dart:io'; // Để làm việc với File
+// ✨ SỬA LỖI IMPORT: Bỏ '/image' thừa
+import 'package:image_picker/image_picker.dart'; // Để chọn ảnh
+import 'package:permission_handler/permission_handler.dart'; // Để xin quyền
+
 import 'services/notification_service.dart';
 import 'screens/notification_screen.dart';
-
 import 'screens/account_settings_screen.dart';
 import 'screens/doanh_thu_screen.dart';
 import 'screens/danh_sach_nhan_vien_screen.dart';
@@ -29,7 +33,6 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await ApiConfig.init();
 
-  // ✨ Bọc ứng dụng của bạn bằng ChangeNotifierProvider
   runApp(
     ChangeNotifierProvider(
       create: (context) => NotificationService(),
@@ -122,7 +125,7 @@ class QuanLyXuongApp extends StatelessWidget {
         page = const NotificationScreen();
         break;
       default:
-        page = const SplashScreen();
+        page = const SplashScreen(); // Mặc định về Splash nếu route lạ
     }
 
     return PageRouteBuilder(
@@ -179,7 +182,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
 
     _controller.forward();
-    _checkToken();
+    _navigateToWelcome(); // Luôn gọi hàm này
   }
 
   @override
@@ -188,16 +191,11 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  Future<void> _checkToken() async {
+  // ✨ HÀM NÀY ĐÚNG: Luôn đi đến Welcome Screen
+  Future<void> _navigateToWelcome() async {
     await Future.delayed(const Duration(seconds: 3));
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('token');
-
-    if (token != null && token.isNotEmpty) {
-      ApiService.token = token;
-      if (context.mounted) Navigator.pushReplacementNamed(context, '/home');
-    } else {
-      if (context.mounted) Navigator.pushReplacementNamed(context, '/welcome');
+    if (context.mounted) {
+      Navigator.pushReplacementNamed(context, '/welcome');
     }
   }
 
@@ -256,9 +254,12 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// ================== WELCOME SCREEN ==================
+/// ================== WELCOME SCREEN (ĐÃ SỬA LẠI) ==================
+// ✨ Quay lại StatelessWidget vì không cần kiểm tra token nữa
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
+
+  // ✨ Bỏ initState và _checkTokenAndNavigate
 
   @override
   Widget build(BuildContext context) {
@@ -304,6 +305,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 50),
             ElevatedButton(
+              // Sử dụng pushNamed để có thể quay lại Welcome Screen
               onPressed: () => Navigator.pushNamed(context, '/login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -317,6 +319,7 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
+              // Sử dụng pushNamed để có thể quay lại Welcome Screen
               onPressed: () => Navigator.pushNamed(context, '/register'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
@@ -348,20 +351,52 @@ class _HomeScreenState extends State<HomeScreen> {
   int _soSanPham = 0;
   int _soHoaDon = 0;
   double _tongDoanhThuThang = 0;
-  String _userName = "User";
+  String _userName = "User"; // Giá trị mặc định
+  String? _avatarPath;
 
   @override
   void initState() {
     super.initState();
+    // Tải đồng thời data chính và data người dùng
     _loadData();
-    _loadUserName();
+    _loadUserData();
   }
 
-  Future<void> _loadUserName() async {
+  // ✨ SỬA LẠI HÀM NÀY ĐỂ DÙNG KEY AVATAR THEO USERNAME
+  Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
+    String? currentUserName = prefs.getString(
+      "userName",
+    ); // Lấy username hiện tại
+
+    // 1. Kiểm tra xem tên có bị thiếu hoặc là "User" không
+    if (currentUserName == null ||
+        currentUserName.isEmpty ||
+        currentUserName == "User") {
+      try {
+        final userInfo = await ApiService.layThongTinCaNhan();
+        currentUserName = userInfo['username'];
+        String? storedEmail = userInfo['email'];
+
+        await prefs.setString("userName", currentUserName ?? "User");
+        if (storedEmail != null) {
+          await prefs.setString("userEmail", storedEmail);
+        }
+      } catch (e) {
+        print("Lỗi khi tải thông tin cá nhân: $e");
+        currentUserName = "User"; // Đảm bảo currentUserName không null
+      }
+    }
+
+    // 2. ✨ Lấy avatar path DỰA TRÊN USERNAME hiện tại
+    String avatarKey = "userAvatar_$currentUserName"; // Tạo key động
+    String? currentUserAvatarPath = prefs.getString(avatarKey);
+
+    // 3. Cập nhật UI
     if (mounted) {
       setState(() {
-        _userName = prefs.getString("userName") ?? "User";
+        _userName = currentUserName ?? "User"; // Đảm bảo _userName không null
+        _avatarPath = currentUserAvatarPath; // Gán avatar path đã lấy
       });
     }
   }
@@ -442,6 +477,23 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  // ✨ (HÀM MỚI) Để hiển thị AccountSheet
+  Future<void> _showAccountSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => const AccountSheet(),
+    ).then((_) {
+      // Tải lại dữ liệu (tên và avatar) sau khi sheet đóng
+      // Dùng hàm _loadUserData đã có sẵn
+      _loadUserData();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -449,10 +501,14 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(),
+            _buildHeader(), // Header bây giờ có thể nhấn vào avatar
             Expanded(
               child: RefreshIndicator(
-                onRefresh: _loadData,
+                onRefresh: () async {
+                  // Khi kéo làm mới, tải lại cả data chính và data người dùng
+                  await _loadData();
+                  await _loadUserData();
+                },
                 color: Theme.of(context).primaryColor,
                 child: GridView.count(
                   padding: const EdgeInsets.all(16),
@@ -520,16 +576,11 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (index == 3) {
             await Navigator.pushNamed(context, '/doanh-thu');
           } else if (index == 4) {
-            showModalBottomSheet(
-              context: context,
-              isScrollControlled: true,
-              backgroundColor: Colors.transparent,
-              shape: const RoundedRectangleBorder(
-                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-              ),
-              builder: (context) => const AccountSheet(),
-            );
+            // ✨ Gọi hàm _showAccountSheet thay vì viết lại logic
+            await _showAccountSheet();
           }
+          // Reset index về 0 sau khi chuyển trang hoặc mở sheet (giữ highlight ở trang hiện tại)
+          // Bạn có thể bỏ dòng này nếu muốn tab "Tài khoản" được highlight sau khi sheet đóng
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) setState(() => _currentIndex = 0);
           });
@@ -559,7 +610,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✨ Widget Header được cập nhật với chức năng thông báo
+  // ✨ Widget Header (ĐÃ CẬP NHẬT VỚI LOGO APP)
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -573,32 +624,53 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          const CircleAvatar(
-            radius: 24,
-            backgroundColor: Colors.white24,
-            child: Icon(Icons.person, size: 28, color: Colors.white),
+          // ✨ Bọc CircleAvatar bằng GestureDetector
+          GestureDetector(
+            onTap: _showAccountSheet, // Gọi hàm hiển thị sheet khi nhấn avatar
+            child: CircleAvatar(
+              radius: 24,
+              backgroundColor: Colors.white24,
+              backgroundImage: _avatarPath != null
+                  ? FileImage(File(_avatarPath!))
+                  : null,
+              child: _avatarPath == null
+                  ? const Icon(Icons.person, size: 28, color: Colors.white)
+                  : null,
+            ),
           ),
           const SizedBox(width: 12),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                "Chào buổi sáng,",
-                style: TextStyle(color: Colors.white70, fontSize: 14),
-              ),
-              Text(
-                _userName,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
+          // ✨ Bọc cột Text bằng GestureDetector để mở sheet khi nhấn vào tên
+          GestureDetector(
+            onTap: _showAccountSheet, // Gọi hàm hiển thị sheet khi nhấn tên
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Chào buổi sáng,",
+                  style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
-              ),
-            ],
+                Text(
+                  _userName, // Tên này đã được tải (FIXED)
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           ),
           const Spacer(),
-          Image.asset("assets/icon/app_icon.png", width: 80, height: 80),
-          // ✨ Sử dụng Consumer để lắng nghe thay đổi và rebuild chỉ icon chuông
+          // ✨ Logo app đã được thêm lại với kích thước lớn hơn
+          Image.asset(
+            "assets/icon/app_icon.png",
+            width: 60,
+            height: 60,
+          ), // Kích thước 60x60
+          const SizedBox(
+            width: 8,
+          ), // Khoảng cách nhỏ giữa logo và nút thông báo
+          // Icon thông báo
           Consumer<NotificationService>(
             builder: (context, service, child) {
               return Stack(
@@ -721,7 +793,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// ================== ACCOUNT SHEET ==================
+/// ================== ACCOUNT SHEET (ĐÃ CẬP NHẬT) ==================
 class AccountSheet extends StatefulWidget {
   const AccountSheet({super.key});
 
@@ -732,6 +804,7 @@ class AccountSheet extends StatefulWidget {
 class _AccountSheetState extends State<AccountSheet> {
   String _userName = "Tên người dùng";
   String _userEmail = "email@example.com";
+  String? _avatarPath;
 
   @override
   void initState() {
@@ -739,20 +812,31 @@ class _AccountSheetState extends State<AccountSheet> {
     _loadUser();
   }
 
+  // ✨ SỬA LẠI HÀM NÀY ĐỂ DÙNG KEY AVATAR THEO USERNAME
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
+    // Lấy username trước để tạo key avatar
+    String currentUserName = prefs.getString("userName") ?? "Tên người dùng";
+    String avatarKey = "userAvatar_$currentUserName"; // Key động cho avatar
+
     setState(() {
-      _userName = prefs.getString("userName") ?? "Tên người dùng";
+      _userName = currentUserName; // Cập nhật username
       _userEmail = prefs.getString("userEmail") ?? "email@example.com";
+      _avatarPath = prefs.getString(avatarKey); // Lấy avatar bằng key động
     });
   }
 
+  // ✨ SỬA LẠI HÀM NÀY: BỎ XÓA AVATAR
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
+    // await prefs.remove("userAvatar"); // ✨ BỎ DÒNG NÀY
+    await prefs.remove("userName");
+    await prefs.remove("userEmail");
     ApiService.token = null;
 
     if (mounted) {
+      // Chuyển về Welcome Screen sau khi logout
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const WelcomeScreen()),
@@ -761,6 +845,141 @@ class _AccountSheetState extends State<AccountSheet> {
     }
   }
 
+  // ✨ (TÍNH NĂNG XEM AVATAR)
+  Future<void> _viewAvatar() async {
+    // Nếu không có avatar (đang là icon mặc định) thì không làm gì cả
+    if (_avatarPath == null) {
+      return;
+    }
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: const EdgeInsets.all(10),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              // InteractiveViewer cho phép người dùng zoom ảnh
+              InteractiveViewer(
+                panEnabled: false,
+                minScale: 0.5,
+                maxScale: 4.0,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(20),
+                  child: Image.file(File(_avatarPath!), fit: BoxFit.contain),
+                ),
+              ),
+              const SizedBox(height: 10),
+              // Nút đóng dialog
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(),
+                child: const Text(
+                  "Đóng",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ✨ SỬA LẠI HÀM NÀY ĐỂ DÙNG KEY AVATAR THEO USERNAME
+  Future<void> _pickAvatar(ImageSource source) async {
+    // 1. Yêu cầu quyền
+    PermissionStatus status;
+    if (source == ImageSource.camera) {
+      status = await Permission.camera.request();
+    } else {
+      if (Platform.isAndroid) {
+        status = await Permission.storage.request();
+      } else {
+        status = await Permission.photos.request();
+      }
+    }
+
+    // 2. Kiểm tra quyền
+    if (status.isGranted) {
+      final ImagePicker picker = ImagePicker();
+      // 3. Chọn ảnh
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 800,
+        imageQuality: 70,
+      );
+
+      // 4. Lưu và cập nhật UI
+      if (image != null && mounted) {
+        final prefs = await SharedPreferences.getInstance();
+        // ✨ Lấy username để tạo key lưu avatar
+        String currentUserName =
+            prefs.getString("userName") ?? "User"; // Lấy username hiện tại
+        if (currentUserName == "User" || currentUserName.isEmpty) {
+          // Xử lý trường hợp không lấy được username (hiếm khi xảy ra ở đây)
+          EasyLoading.showError('Không thể lưu avatar, vui lòng thử lại.');
+          return;
+        }
+        String avatarKey = "userAvatar_$currentUserName"; // Tạo key động
+
+        // ✨ Lưu avatar bằng key động
+        await prefs.setString(avatarKey, image.path);
+
+        setState(() {
+          _avatarPath = image.path;
+        });
+        // Bạn có thể không cần Provider ở đây nữa vì HomeScreen sẽ tự load lại khi sheet đóng
+      }
+    } else {
+      // Xử lý trường hợp từ chối quyền
+      if (mounted) {
+        EasyLoading.showError(
+          'Bạn cần cấp quyền để dùng tính năng này',
+          duration: const Duration(seconds: 3),
+        );
+      }
+    }
+  }
+
+  // ✨ Hàm hiển thị lựa chọn Camera/Gallery (Không đổi)
+  void _showAvatarOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return SafeArea(
+          child: Wrap(
+            children: <Widget>[
+              ListTile(
+                leading: const Icon(Icons.photo_library),
+                title: const Text('Chọn từ thư viện'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAvatar(ImageSource.gallery);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.photo_camera),
+                title: const Text('Chụp ảnh mới'),
+                onTap: () {
+                  Navigator.of(context).pop();
+                  _pickAvatar(ImageSource.camera);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ✨ HÀM BUILD (Không đổi)
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -774,18 +993,57 @@ class _AccountSheetState extends State<AccountSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              CircleAvatar(
-                radius: 45,
-                backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
-                child: const Icon(
-                  Icons.person,
-                  size: 55,
-                  color: Color(0xFF4A00E0),
-                ),
+              // SỬ DỤNG STACK ĐỂ THÊM NÚT SỬA LÊN TRÊN AVATAR
+              Stack(
+                children: [
+                  // Avatar (bấm để XEM)
+                  GestureDetector(
+                    onTap: _viewAvatar, // Bấm vào ảnh để XEM
+                    child: CircleAvatar(
+                      radius: 45,
+                      backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
+                      backgroundImage: _avatarPath != null
+                          ? FileImage(File(_avatarPath!))
+                          : null,
+                      child: _avatarPath == null
+                          ? const Icon(
+                              Icons.person,
+                              size: 55,
+                              color: Color(0xFF4A00E0),
+                            )
+                          : null,
+                    ),
+                  ),
+                  // Nút "Sửa" (bấm để THAY ĐỔI)
+                  Positioned(
+                    bottom: 0,
+                    right: 0,
+                    child: Material(
+                      color: Colors.white,
+                      shape: const CircleBorder(),
+                      elevation: 2,
+                      child: InkWell(
+                        onTap: _showAvatarOptions, // Bấm vào icon để THAY ĐỔI
+                        customBorder: const CircleBorder(),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.edit,
+                            size: 18,
+                            color: Color(0xFF4A00E0),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 12),
               Text(
-                _userName,
+                _userName, // Tên này đã được tải từ SharedPreferences
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -800,7 +1058,7 @@ class _AccountSheetState extends State<AccountSheet> {
                 icon: Icons.qr_code_2,
                 title: "Mã QR",
                 onTap: () {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Đóng sheet trước khi chuyển trang
                   Navigator.pushNamed(context, "/show-qr");
                 },
               ),
@@ -808,14 +1066,14 @@ class _AccountSheetState extends State<AccountSheet> {
                 icon: Icons.settings_outlined,
                 title: "Cài đặt tài khoản",
                 onTap: () async {
-                  Navigator.pop(context);
+                  Navigator.pop(context); // Đóng sheet trước khi chuyển trang
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const AccountSettingsScreen(),
                     ),
                   );
-                  if (result == true) await _loadUser();
+                  // Không cần gọi _loadUser ở đây nữa
                 },
               ),
               const Divider(height: 24, indent: 16, endIndent: 16),
@@ -839,6 +1097,7 @@ class _AccountSheetState extends State<AccountSheet> {
     );
   }
 
+  // ✨ HÀM BUILD MENU ITEM (Không đổi)
   Widget _buildMenuItem({
     required IconData icon,
     required String title,

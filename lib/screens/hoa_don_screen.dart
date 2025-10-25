@@ -1,5 +1,4 @@
 // lib/screens/hoa_don_screen.dart
-
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -29,6 +28,9 @@ class _HoaDonScreenState extends State<HoaDonScreen>
 
   final int _currentIndex = 1;
 
+  // ✨ MÀU SẮC: Giữ nguyên màu gốc của bạn
+  final Color _primaryColor = const Color(0xFF4A00E0);
+
   @override
   void initState() {
     super.initState();
@@ -43,7 +45,10 @@ class _HoaDonScreenState extends State<HoaDonScreen>
     super.dispose();
   }
 
-  // ... (Các hàm _loadDanhSach, _applySearch, _formatMoney, _xoaHoaDon, _xoaTatCaDaThanhToan giữ nguyên) ...
+  // =======================================================================
+  // ✨ KHÔNG THAY ĐỔI LOGIC - Các hàm xử lý dữ liệu được giữ nguyên
+  // =======================================================================
+
   Future<void> _loadDanhSach() async {
     if (!mounted) return;
     setState(() => _isLoading = true);
@@ -168,295 +173,71 @@ class _HoaDonScreenState extends State<HoaDonScreen>
     await _loadDanhSach();
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) {
+      return 'Chào buổi sáng';
+    }
+    if (hour < 18) {
+      return 'Chào buổi chiều';
+    }
+    return 'Chào buổi tối';
+  }
+
+  // =======================================================================
+  // ✨ BẮT ĐẦU PHẦN GIAO DIỆN (UI) ĐÃ CẬP NHẬT
+  // =======================================================================
+
   @override
   Widget build(BuildContext context) {
-    // ✨ Lấy lời chào và ngày tháng
-    final String greeting = _getGreeting();
-    final String today = DateFormat("dd/MM/yyyy").format(DateTime.now());
-
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
+      appBar: _buildAppBar(),
       body: RefreshIndicator(
         onRefresh: _loadDanhSach,
+        color: _primaryColor,
         child: Column(
           children: [
-            // ✨ BẮT ĐẦU PHẦN HEADER ĐÃ SỬA
+            // Phần Header (Chào, Tóm tắt)
             Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                16,
-                MediaQuery.of(context).padding.top + 10,
-                16,
-                12,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFF4A00E0), Color(0xFF8E2DE2)],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(20),
-                  bottomRight: Radius.circular(20),
-                ),
-              ),
+              color: Colors.white,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              greeting, // Sử dụng lời chào động
-                              style: TextStyle(
-                                color: Colors.white.withOpacity(0.9),
-                                fontSize: 16,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              today,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          // ... (Phần Consumer<NotificationService> và Image.asset giữ nguyên) ...
-                          Consumer<NotificationService>(
-                            builder: (context, service, child) {
-                              return Stack(
-                                children: [
-                                  IconButton(
-                                    onPressed: () {
-                                      Navigator.pushNamed(
-                                        context,
-                                        '/notifications',
-                                      );
-                                    },
-                                    icon: const Icon(
-                                      Icons.notifications_outlined,
-                                      color: Colors.white,
-                                      size: 30,
-                                    ),
-                                    tooltip: 'Thông báo',
-                                  ),
-                                  if (service.unreadCount > 0)
-                                    Positioned(
-                                      right: 8,
-                                      top: 8,
-                                      child: Container(
-                                        padding: const EdgeInsets.all(2),
-                                        decoration: BoxDecoration(
-                                          color: Colors.red,
-                                          borderRadius: BorderRadius.circular(
-                                            10,
-                                          ),
-                                        ),
-                                        constraints: const BoxConstraints(
-                                          minWidth: 16,
-                                          minHeight: 16,
-                                        ),
-                                        child: Text(
-                                          '${service.unreadCount}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                          ),
-                                          textAlign: TextAlign.center,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              );
-                            },
-                          ),
-                          Image.asset(
-                            "assets/icon/app_icon.png",
-                            width: 90,
-                            height: 90,
-                            fit: BoxFit.contain,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // ✨ SỬA: Bọc các ô tóm tắt bằng LayoutBuilder
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      // Đặt một ngưỡng (breakpoint). Nếu chiều rộng nhỏ hơn ngưỡng này, layout sẽ chuyển thành dạng cột.
-                      const double breakpoint = 380.0;
-                      if (constraints.maxWidth < breakpoint) {
-                        // Giao diện cho màn hình hẹp (dạng cột)
-                        return Column(
-                          children: [
-                            _buildSummaryBox(
-                              "Chưa thanh toán",
-                              _chuaThanhToan.length,
-                              Colors.orangeAccent,
-                            ),
-                            const SizedBox(height: 12),
-                            _buildSummaryBox(
-                              "Đã thanh toán",
-                              _daThanhToan.length,
-                              Colors.greenAccent,
-                            ),
-                          ],
-                        );
-                      } else {
-                        // Giao diện cho màn hình rộng (dạng hàng)
-                        return Row(
-                          children: [
-                            Expanded(
-                              child: _buildSummaryBox(
-                                "Chưa thanh toán",
-                                _chuaThanhToan.length,
-                                Colors.orangeAccent,
-                              ),
-                            ),
-                            Expanded(
-                              child: _buildSummaryBox(
-                                "Đã thanh toán",
-                                _daThanhToan.length,
-                                Colors.greenAccent,
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-                    },
-                  ),
-
-                  const SizedBox(height: 12),
-                  // ... (Phần còn lại của header giữ nguyên) ...
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        "Danh sách hóa đơn",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      Row(
-                        children: [
-                          IconButton(
-                            icon: const Icon(
-                              Icons.qr_code_scanner,
-                              color: Colors.white,
-                            ),
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => const QuetMaScreen(),
-                                ),
-                              );
-
-                              if (result != null && result is String) {
-                                final hoaDon = await ApiService.taoHoaDonTheoMa(
-                                  result,
-                                );
-
-                                if (hoaDon != null) {
-                                  if (!context.mounted) return;
-                                  await Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          ChiTietHoaDonScreen(hd: hoaDon),
-                                    ),
-                                  );
-                                  await _loadDanhSach();
-                                } else {
-                                  if (!context.mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        "❌ Không tìm thấy sản phẩm hoặc lỗi khi tạo hóa đơn",
-                                      ),
-                                    ),
-                                  );
-                                }
-                              }
-                            },
-                          ),
-                          IconButton(
-                            icon: Icon(
-                              _isSearching ? Icons.close : Icons.search,
-                              color: Colors.white,
-                            ),
-                            onPressed: () {
-                              setState(() {
-                                if (_isSearching) {
-                                  _isSearching = false;
-                                  _searchQuery = "";
-                                  _searchController.clear();
-                                } else {
-                                  _isSearching = true;
-                                }
-                              });
-                            },
-                          ),
-                          IconButton(
-                            icon: const Icon(
-                              Icons.delete_sweep,
-                              color: Colors.white,
-                            ),
-                            onPressed: _xoaTatCaDaThanhToan,
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  if (_isSearching)
-                    TextField(
-                      controller: _searchController,
-                      style: const TextStyle(color: Colors.white),
-                      decoration: const InputDecoration(
-                        hintText: "Tìm kiếm theo mã hóa đơn...",
-                        hintStyle: TextStyle(color: Colors.white70),
-                        border: InputBorder.none,
-                      ),
-                      onChanged: (value) {
-                        setState(() => _searchQuery = value);
-                      },
-                    ),
+                  _buildGreeting(),
+                  _buildSummarySection(), // ✨ Sửa: Chứa 2 ô tóm tắt
+                  const SizedBox(height: 16),
                 ],
               ),
             ),
 
-            // ✨ KẾT THÚC PHẦN HEADER ĐÃ SỬA
+            // Thanh điều khiển danh sách (Tiêu đề, icon)
+            _buildListActions(),
+
+            // Thanh tìm kiếm
+            _buildSearchBar(),
+
+            // Thanh Tab
             Material(
               color: Colors.white,
               child: TabBar(
                 controller: _tabController,
-                indicatorColor: const Color(0xFF4A00E0),
-                labelColor: const Color(0xFF4A00E0),
-                unselectedLabelColor: Colors.grey,
+                indicatorColor: _primaryColor,
+                labelColor: _primaryColor,
+                unselectedLabelColor: Colors.grey.shade600,
                 tabs: const [
                   Tab(text: "Chưa thanh toán"),
                   Tab(text: "Đã thanh toán"),
                 ],
               ),
             ),
+
+            // Danh sách
             Expanded(
               child: _isLoading
-                  ? const Center(child: CircularProgressIndicator())
+                  ? Center(
+                      child: CircularProgressIndicator(color: _primaryColor),
+                    )
                   : TabBarView(
                       controller: _tabController,
                       children: [
@@ -468,181 +249,230 @@ class _HoaDonScreenState extends State<HoaDonScreen>
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: const Color(0xFF4A00E0),
-        onPressed: () async {
-          final result = await Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => const ChiTietHoaDonScreen(),
-            ),
-          );
-          if (result != null) {
-            await _loadDanhSach();
-          }
-        },
-        child: const Icon(Icons.add, color: Colors.white),
+      floatingActionButton: _buildFloatingActionButton(),
+      bottomNavigationBar: _buildBottomNavBar(),
+    );
+  }
+
+  /// AppBar
+  AppBar _buildAppBar() {
+    return AppBar(
+      backgroundColor: _primaryColor, // ✨ Đã dùng màu gốc
+      elevation: 0,
+      automaticallyImplyLeading: false,
+      title: Image.asset(
+        "assets/icon/app_icon.png",
+        height: 60,
+        width: 120,
+        fit: BoxFit.contain,
+        alignment: Alignment.centerLeft,
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
-        onTap: (index) {
-          if (_currentIndex == index) return;
-          switch (index) {
-            case 0:
-              Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
-              break;
-            case 1:
-              break;
-            case 2:
-              Navigator.pushReplacementNamed(context, '/kho-hang');
-              break;
-            case 3:
-              Navigator.pushReplacementNamed(context, '/doanh-thu');
-              break;
-            case 4:
-              Navigator.pushReplacementNamed(context, '/home');
-              break;
-          }
-        },
-        backgroundColor: Colors.white,
-        selectedItemColor: const Color(0xFF4A00E0),
-        unselectedItemColor: Colors.grey,
-        type: BottomNavigationBarType.fixed,
-        items: const [
-          BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long),
-            label: "Hóa Đơn",
+      actions: [
+        // Nút thông báo
+        Consumer<NotificationService>(
+          builder: (context, service, child) {
+            return Stack(
+              children: [
+                IconButton(
+                  onPressed: () {
+                    Navigator.pushNamed(context, '/notifications');
+                  },
+                  icon: const Icon(
+                    Icons.notifications_outlined,
+                    color: Colors.white,
+                    size: 28,
+                  ),
+                  tooltip: 'Thông báo',
+                ),
+                if (service.unreadCount > 0)
+                  Positioned(
+                    right: 8,
+                    top: 8,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 16,
+                        minHeight: 16,
+                      ),
+                      child: Text(
+                        '${service.unreadCount}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(width: 8),
+      ],
+    );
+  }
+
+  /// Phần chào và ngày tháng
+  Widget _buildGreeting() {
+    final String greeting = _getGreeting();
+    final String today = DateFormat("dd/MM/yyyy").format(DateTime.now());
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            greeting,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.warehouse),
-            label: "Kho Hàng",
+          const SizedBox(height: 4),
+          Text(
+            today,
+            style: const TextStyle(
+              color: Colors.black87,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.bar_chart),
-            label: "Doanh Thu",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
         ],
       ),
     );
   }
 
-  Widget _buildList(List<HoaDon> list) {
-    if (list.isEmpty) {
-      return Center(
-        child: Text(
-          _isSearching ? "Không tìm thấy kết quả" : "Không có hóa đơn",
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final hd = list[index];
-        final color = hd.trangThai == "Đã thanh toán"
-            ? Colors.green
-            : Colors.orange;
-        final ngay = hd.ngayLap != null
-            ? DateFormat('dd/MM/yyyy').format(hd.ngayLap!)
-            : "-";
-
-        return Card(
-          margin: const EdgeInsets.symmetric(vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          elevation: 3,
-          child: ListTile(
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => ChiTietHoaDonScreen(hd: hd)),
-              );
-              await _loadDanhSach();
-            },
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 12,
-            ),
-            title: Text(
-              "Mã: ${hd.maHoaDon}",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-            ),
-            subtitle: Text(
-              "Loại: ${hd.loaiHoaDon ?? "Chưa chọn"}\n"
-              "SL mặt hàng: ${hd.items.length}\n"
-              "Ngày lập: $ngay\n"
-              "Tổng tiền: ${_formatMoney(hd.tongTien)} VND\n"
-              "Thanh toán: ${hd.phuongThuc ?? "Chưa chọn"}",
-              style: const TextStyle(height: 1.4),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (hd.trangThai != "Đã thanh toán")
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                    onPressed: () => _xoaHoaDon(hd),
-                  ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: color,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    hd.trangThai ?? "",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+  /// ✨ SỬA: Phần tóm tắt dạng Card, thêm InkWell
+  Widget _buildSummarySection() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+      child: Row(
+        children: [
+          Expanded(
+            // ✨ SỬA: Thêm InkWell để bấm
+            child: InkWell(
+              onTap: () {
+                _tabController.animateTo(0); // Chuyển đến tab "Chưa thanh toán"
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: _buildSummaryBox(
+                "Chưa thanh toán",
+                _chuaThanhToan.length,
+                Colors.orangeAccent, // ✨ SỬA: Đổi màu text
+              ),
             ),
           ),
-        );
-      },
+          const SizedBox(width: 12),
+          Expanded(
+            // ✨ SỬA: Thêm InkWell để bấm
+            child: InkWell(
+              onTap: () {
+                _tabController.animateTo(1); // Chuyển đến tab "Đã thanh toán"
+              },
+              borderRadius: BorderRadius.circular(16),
+              child: _buildSummaryBox(
+                "Đã thanh toán",
+                _daThanhToan.length,
+                Colors.greenAccent, // ✨ SỬA: Đổi màu text
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
-  // ✨ SỬA: Gỡ bỏ Expanded ra khỏi hàm này để nó linh hoạt hơn
-  Widget _buildSummaryBox(String title, int count, Color color) {
-    return Container(
-      // margin không cần thiết nếu parent xử lý (nhưng giữ lại cũng không sao)
-      // margin: const EdgeInsets.symmetric(horizontal: 6),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        // ✨ Dùng Row để icon và text nằm cạnh nhau đẹp hơn
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Column(
-            children: [
-              Text(
-                title,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
+  /// ✨ SỬA: Widget `_buildSummaryBox` - Đã xóa Icon
+  Widget _buildSummaryBox(String title, int count, Color textColor) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      // ✨ SỬA: Bỏ màu nền nhẹ
+      color: Colors.white,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 26.5,
+        ), // Tăng padding dọc
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.center, // Căn giữa
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: Colors.grey.shade800,
+                fontWeight: FontWeight.w600,
+                fontSize: 14,
               ),
-              const SizedBox(height: 6),
-              Text(
-                "$count",
-                style: TextStyle(
-                  color: color,
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+            const SizedBox(height: 8), // Tăng khoảng cách
+            Text(
+              "$count",
+              style: TextStyle(
+                color: textColor, // ✨ SỬA: Dùng màu text được truyền vào
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Widget chứa Tiêu đề "Danh sách..." và các nút
+  Widget _buildListActions() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 8, 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            "Danh sách hóa đơn",
+            style: TextStyle(
+              color: Colors.black87,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          Row(
+            children: [
+              IconButton(
+                icon: Icon(Icons.qr_code_scanner, color: _primaryColor),
+                tooltip: "Quét mã tạo hóa đơn",
+                onPressed: _handleScanQRCode,
+              ),
+              IconButton(
+                icon: Icon(
+                  _isSearching ? Icons.close : Icons.search,
+                  color: _primaryColor,
                 ),
+                tooltip: "Tìm kiếm",
+                onPressed: () {
+                  setState(() {
+                    if (_isSearching) {
+                      _isSearching = false;
+                      _searchQuery = "";
+                      _searchController.clear();
+                    } else {
+                      _isSearching = true;
+                    }
+                  });
+                },
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.delete_sweep_outlined,
+                  color: Colors.red.shade600,
+                ),
+                tooltip: "Xóa tất cả hóa đơn đã thanh toán",
+                onPressed: _xoaTatCaDaThanhToan,
               ),
             ],
           ),
@@ -651,15 +481,267 @@ class _HoaDonScreenState extends State<HoaDonScreen>
     );
   }
 
-  // ✨ MỚI: Thêm hàm lấy lời chào theo buổi
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) {
-      return 'Chào buổi sáng,';
+  /// Tách logic quét QR ra cho gọn
+  void _handleScanQRCode() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const QuetMaScreen()),
+    );
+
+    if (result != null && result is String) {
+      final hoaDon = await ApiService.taoHoaDonTheoMa(result);
+      if (!mounted) return;
+
+      if (hoaDon != null) {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ChiTietHoaDonScreen(hd: hoaDon)),
+        );
+        await _loadDanhSach();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("❌ Không tìm thấy sản phẩm hoặc lỗi khi tạo hóa đơn"),
+          ),
+        );
+      }
     }
-    if (hour < 18) {
-      return 'Chào buổi chiều,';
+  }
+
+  /// Widget thanh tìm kiếm
+  Widget _buildSearchBar() {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      height: _isSearching ? 60 : 0,
+      child: _isSearching
+          ? Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.black87),
+                decoration: InputDecoration(
+                  hintText: "Tìm kiếm theo mã hóa đơn...",
+                  hintStyle: TextStyle(color: Colors.grey.shade600),
+                  prefixIcon: Icon(Icons.search, color: Colors.grey.shade600),
+                  filled: true,
+                  fillColor: Colors.grey.shade200,
+                  contentPadding: const EdgeInsets.all(10),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
+                ),
+                onChanged: (value) {
+                  setState(() => _searchQuery = value);
+                },
+              ),
+            )
+          : const SizedBox.shrink(),
+    );
+  }
+
+  /// Widget `_buildList` (Giữ nguyên thiết kế thẻ)
+  Widget _buildList(List<HoaDon> list) {
+    if (list.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Text(
+            _isSearching ? "Không tìm thấy kết quả" : "Chưa có hóa đơn nào",
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
     }
-    return 'Chào buổi tối,';
+    return ListView.builder(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 80), // Thêm padding dưới
+      itemCount: list.length,
+      itemBuilder: (context, index) {
+        final hd = list[index];
+        final isPaid = hd.trangThai == "Đã thanh toán";
+        // ✨ SỬA: Đổi màu tag trạng thái cho nhất quán
+        final color = isPaid ? Colors.green : Colors.orange.shade700;
+        final ngay = hd.ngayLap != null
+            ? DateFormat('dd/MM/yyyy').format(hd.ngayLap!)
+            : "-";
+
+        IconData loaiIcon = Icons.receipt_long_outlined;
+        if (hd.loaiHoaDon == "Xuất") {
+          loaiIcon = Icons.arrow_upward_rounded;
+        } else if (hd.loaiHoaDon == "Nhập") {
+          loaiIcon = Icons.arrow_downward_rounded;
+        }
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          elevation: 2,
+          child: InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () async {
+              await Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => ChiTietHoaDonScreen(hd: hd)),
+              );
+              await _loadDanhSach();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  // Icon đầu
+                  CircleAvatar(
+                    backgroundColor: _primaryColor.withOpacity(0.1),
+                    child: Icon(loaiIcon, color: _primaryColor, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  // Thông tin chính
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Mã: ${hd.maHoaDon}",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 15,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "Ngày: $ngay • ${hd.items.length} mặt hàng",
+                          style: TextStyle(
+                            color: Colors.grey.shade700,
+                            fontSize: 13,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          "${_formatMoney(hd.tongTien)} VND",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Colors.black,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Trạng thái và nút xóa
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildStatusTag(hd.trangThai ?? "", color),
+                      if (!isPaid)
+                        IconButton(
+                          visualDensity: VisualDensity.compact,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: const Icon(
+                            Icons.delete_outline,
+                            size: 20,
+                            color: Colors.red,
+                          ),
+                          onPressed: () => _xoaHoaDon(hd),
+                        )
+                      else
+                        const SizedBox(
+                          height: 40,
+                        ), // Giữ-chỗ-để-cân-bằng-layout
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// Widget cho cái tag trạng thái
+  Widget _buildStatusTag(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          color: Colors.white,
+          fontWeight: FontWeight.bold,
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  /// Nút FAB
+  Widget _buildFloatingActionButton() {
+    return FloatingActionButton(
+      backgroundColor: _primaryColor, // ✨ Đã dùng màu gốc
+      onPressed: () async {
+        final result = await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (context) => const ChiTietHoaDonScreen()),
+        );
+        if (result != null) {
+          await _loadDanhSach();
+        }
+      },
+      child: const Icon(Icons.add, color: Colors.white),
+    );
+  }
+
+  /// Bottom Nav Bar
+  Widget _buildBottomNavBar() {
+    return BottomNavigationBar(
+      currentIndex: _currentIndex,
+      onTap: (index) {
+        if (_currentIndex == index) return;
+        switch (index) {
+          case 0:
+            Navigator.pushReplacementNamed(context, '/danh-sach-nhan-vien');
+            break;
+          case 1:
+            // Đã ở đây
+            break;
+          case 2:
+            Navigator.pushReplacementNamed(context, '/kho-hang');
+            break;
+          case 3:
+            Navigator.pushReplacementNamed(context, '/doanh-thu');
+            break;
+          case 4:
+            Navigator.pushReplacementNamed(context, '/home');
+            break;
+        }
+      },
+      backgroundColor: Colors.white,
+      selectedItemColor: _primaryColor, // ✨ Đã dùng màu gốc
+      unselectedItemColor: Colors.grey.shade600,
+      type: BottomNavigationBarType.fixed,
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.people), label: "Nhân Viên"),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.receipt_long),
+          label: "Hóa Đơn",
+        ),
+        BottomNavigationBarItem(icon: Icon(Icons.warehouse), label: "Kho Hàng"),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.bar_chart),
+          label: "Doanh Thu",
+        ),
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
+      ],
+    );
   }
 }

@@ -1,18 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- ✅ Quyền truy cập cần thiết -->
     <uses-permission android:name="android.permission.INTERNET"/>
+
     <uses-permission android:name="android.permission.CAMERA"/>
-    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"/>
-    <uses-permission
-        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
-        android:maxSdkVersion="28"/> <!-- Chỉ cần cho Android 9 trở xuống -->
-    <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />
+
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
     <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
-    <uses-permission android:name="android.permission.CALL_PHONE"/>
 
-    <!-- ⚙️ Khai báo thiết bị có camera (quan trọng cho mobile_scanner) -->
+    <uses-permission 
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32" />
+
+    <uses-permission
+        android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+    
     <uses-feature android:name="android.hardware.camera" android:required="false"/>
     <uses-feature android:name="android.hardware.camera.autofocus" android:required="false"/>
 
@@ -20,10 +22,8 @@
         android:name="${applicationName}"
         android:label="VietFlow"
         android:icon="@mipmap/ic_launcher"
-        android:requestLegacyExternalStorage="true"
+        android:requestLegacyExternalStorage="true" 
         android:hardwareAccelerated="true">
-
-        <!-- 🎯 Activity chính -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -43,12 +43,10 @@
             </intent-filter>
         </activity>
 
-        <!-- ✅ Flutter embedding -->
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- ✅ Cho phép mở / lưu file (ảnh, PDF, QR,...) -->
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"
@@ -60,16 +58,19 @@
         </provider>
     </application>
 
-    <!-- ✅ Cho phép truy vấn các ứng dụng khác -->
     <queries>
-        <intent>
-            <action android:name="android.intent.action.PROCESS_TEXT"/>
-            <data android:mimeType="text/plain"/>
-        </intent>
-
         <intent>
             <action android:name="android.intent.action.DIAL"/>
             <data android:scheme="tel"/>
+        </intent>
+        
+        <intent>
+            <action android:name="android.intent.action.VIEW"/>
+            <data android:scheme="https" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.SENDTO"/>
+            <data android:scheme="mailto"/>
         </intent>
     </queries>
 </manifest>

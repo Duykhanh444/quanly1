@@ -9,7 +9,7 @@ import '../models/khohang.dart';
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
 import '../api_config.dart';
-import '../api_config.dart'; // Đảm bảo đường dẫn đúng
+// ✨ SỬA LỖI: Xóa import 'package://...' và import trùng lặp
 import 'package:flutter/foundation.dart';
 
 class ApiService {
@@ -49,8 +49,9 @@ class ApiService {
     }
   }
 
-  // --------------------- ĐĂNG NHẬP ---------------------
-  static Future<bool> dangNhap({
+  // --------------------- ĐĂNG NHẬP (ĐÃ SỬA) ---------------------
+  /// Trả về Map chứa thông tin user nếu thành công, ngược lại trả về null.
+  static Future<Map<String, dynamic>?> dangNhap({
     required String username,
     required String password,
   }) async {
@@ -63,15 +64,34 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        token = data['token'];
-        return true;
+        token = data['token']; // Lưu token vào service
+
+        // ✨ TRẢ VỀ DATA NGƯỜI DÙNG ✨
+        // ⚠️==============================================================⚠️
+        // ⚠️ (KHU VỰC 1) BẠN PHẢI KIỂM TRA CHỖ NÀY!
+        // ⚠️ API của bạn trả về tên người dùng và email ở đâu?
+        // ⚠️ Ví dụ: nếu API trả về { "token": "...", "user": { "tenDangNhap": "Khanh12", "email": "a@b.c" } }
+        // ⚠️ thì bạn phải sửa 2 dòng dưới thành:
+        // ⚠️ final userData = data['user'] ?? {};
+        // ⚠️ 'userName': userData['tenDangNhap'] ?? 'User',
+        // ⚠️ 'userEmail': userData['email'] ?? 'email@example.com',
+        // ⚠️==============================================================⚠️
+
+        final userData = data['user'] ?? {}; // Lấy object user, hoặc rỗng
+
+        return {
+          'token': token,
+          'userName': userData['username'] ?? 'User', // <-- SỬA KEY NÀY
+          'userEmail':
+              userData['email'] ?? 'email@example.com', // <-- SỬA KEY NÀY
+        };
       } else {
         print('Login failed: ${response.statusCode} ${response.body}');
       }
     } catch (e) {
       print('Exception dangNhap: $e');
     }
-    return false;
+    return null; // Trả về null nếu thất bại
   }
 
   static Map<String, String> get _headersAuth => {
@@ -487,6 +507,39 @@ class ApiService {
   }
 
   // --------------------- TÀI KHOẢN ---------------------
+
+  // ✨ (HÀM MỚI) Lấy thông tin cá nhân (dùng cho HomeScreen fix lỗi "User")
+  static Future<Map<String, dynamic>> layThongTinCaNhan() async {
+    try {
+      // ⚠️==============================================================⚠️
+      // ⚠️ (KHU VỰC 2) BẠN PHẢI KIỂM TRA CHỖ NÀY!
+      // ⚠️ 1. Endpoint (đường dẫn) '/profile' đã đúng chưa?
+      // ⚠️    (Có thể API của bạn là '/me' hoặc '/auth/info'...)
+      // ⚠️ 2. Cấu trúc JSON trả về có giống hàm login không?
+      // ⚠️    Nếu API trả về { "tenDangNhap": "Khanh12", "email": "a@b.c" }
+      // ⚠️    Bạn phải sửa 2 dòng dưới thành:
+      // ⚠️    'username': data['tenDangNhap'] ?? 'User',
+      // ⚠️    'email': data['email'] ?? 'email@example.com',
+      // ⚠️==============================================================⚠️
+      final response = await http.get(
+        Uri.parse('$baseUrlAuth/profile'), // <-- SỬA ĐƯỜNG DẪN NÀY NẾU CẦN
+        headers: _headersAuth,
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return {
+          'username': data['username'] ?? 'User', // <-- SỬA KEY NÀY
+          'email': data['email'] ?? 'email@example.com', // <-- SỬA KEY NÀY
+        };
+      }
+    } catch (e) {
+      print("Exception layThongTinCaNhan: $e");
+    }
+    // Trả về map mặc định nếu lỗi
+    return {'username': 'User', 'email': 'email@example.com'};
+  }
+
   /// Cập nhật thông tin hồ sơ người dùng
   static Future<bool> updateProfile({
     required String username,

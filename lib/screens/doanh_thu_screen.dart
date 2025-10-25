@@ -255,9 +255,8 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
     );
   }
 
-  // ✨ ======================================================= ✨
-  // ✨      PHẦN HEADER ĐÃ ĐƯỢC CẬP NHẬT THEO YÊU CẦU MỚI      ✨
-  // ✨ ======================================================= ✨
+  // PHẦN HEADER ĐÃ ĐƯỢC CẬP NHẬT THEO YÊU CẦU MỚI
+
   Widget _buildHeader() {
     return SliverAppBar(
       foregroundColor: Colors.white,
@@ -337,7 +336,7 @@ class _DoanhThuScreenState extends State<DoanhThuScreen> {
           ),
         ),
       ],
-      // ✨ MỚI: Thêm nền gradient để đồng bộ với app
+      //  Thêm nền gradient để đồng bộ với app
       flexibleSpace: Container(
         decoration: const BoxDecoration(
           gradient: LinearGradient(

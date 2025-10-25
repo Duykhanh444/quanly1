@@ -447,11 +447,13 @@ class _KhoHangScreenState extends State<KhoHangScreen>
                       "Kho Hàng Nhập",
                       _tongHoatDong,
                       Colors.green,
+                      0, // <--- THAY ĐỔI Ở ĐÂY
                     ),
                     _buildAnimatedBox(
                       "Kho Hàng Xuất",
                       _tongDaXuat,
                       Colors.orange,
+                      1, // <--- THAY ĐỔI Ở ĐÂY
                     ),
                   ],
                 ),
@@ -576,38 +578,46 @@ class _KhoHangScreenState extends State<KhoHangScreen>
     );
   }
 
-  Widget _buildAnimatedBox(String title, int count, Color color) {
+  // <--- BẮT ĐẦU HÀM ĐƯỢC CẬP NHẬT --->
+  Widget _buildAnimatedBox(String title, int count, Color color, int tabIndex) {
     return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 6),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white.withOpacity(0.15),
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Column(
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+      child: InkWell(
+        onTap: () {
+          _tabController.animateTo(tabIndex);
+        },
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 6),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              "$count",
-              style: TextStyle(
-                color: color,
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 6),
+              Text(
+                "$count",
+                style: TextStyle(
+                  color: color,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
+  // <--- KẾT THÚC HÀM ĐƯỢC CẬP NHẬT --->
 
   Widget _buildList(String trangThai) {
     final ds = _filteredKho.where((k) => k.trangThai == trangThai).toList();
