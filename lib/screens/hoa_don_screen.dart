@@ -28,8 +28,8 @@ class _HoaDonScreenState extends State<HoaDonScreen>
 
   final int _currentIndex = 1;
 
-  // ✨ MÀU SẮC: Giữ nguyên màu gốc của bạn
   final Color _primaryColor = const Color(0xFF4A00E0);
+  final Color _lightPurpleColor = const Color(0xFF8E2DE2);
 
   @override
   void initState() {
@@ -176,48 +176,34 @@ class _HoaDonScreenState extends State<HoaDonScreen>
   String _getGreeting() {
     final hour = DateTime.now().hour;
     if (hour < 12) {
-      return 'Chào buổi sáng';
+      return 'Chào buổi sáng,';
     }
     if (hour < 18) {
-      return 'Chào buổi chiều';
+      return 'Chào buổi chiều,';
     }
-    return 'Chào buổi tối';
+    return 'Chào buổi tối,';
   }
 
   // =======================================================================
-  // ✨ BẮT ĐẦU PHẦN GIAO DIỆN (UI) ĐÃ CẬP NHẬT
+  // ✨ BẮT ĐẦU PHẦN GIAO DIỆN (UI) ĐÃ THIẾT KẾ LẠI
   // =======================================================================
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade100,
-      appBar: _buildAppBar(),
+      // ✨ SỬA: Dùng AppBar tùy chỉnh MỚI, chuyên nghiệp
+      appBar: _buildCustomAppBar(),
       body: RefreshIndicator(
         onRefresh: _loadDanhSach,
         color: _primaryColor,
         child: Column(
           children: [
-            // Phần Header (Chào, Tóm tắt)
-            Container(
-              color: Colors.white,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildGreeting(),
-                  _buildSummarySection(), // ✨ Sửa: Chứa 2 ô tóm tắt
-                  const SizedBox(height: 16),
-                ],
-              ),
-            ),
-
-            // Thanh điều khiển danh sách (Tiêu đề, icon)
+            // ✨ XÓA: Đã xóa phần Header cũ
             _buildListActions(),
-
-            // Thanh tìm kiếm
             _buildSearchBar(),
 
-            // Thanh Tab
+            // Thanh Tab (Đã xóa số lượng bên dưới)
             Material(
               color: Colors.white,
               child: TabBar(
@@ -231,8 +217,6 @@ class _HoaDonScreenState extends State<HoaDonScreen>
                 ],
               ),
             ),
-
-            // Danh sách
             Expanded(
               child: _isLoading
                   ? Center(
@@ -254,173 +238,154 @@ class _HoaDonScreenState extends State<HoaDonScreen>
     );
   }
 
-  /// AppBar
-  AppBar _buildAppBar() {
-    return AppBar(
-      backgroundColor: _primaryColor, // ✨ Đã dùng màu gốc
-      elevation: 0,
-      automaticallyImplyLeading: false,
-      title: Image.asset(
-        "assets/icon/app_icon.png",
-        height: 60,
-        width: 120,
-        fit: BoxFit.contain,
-        alignment: Alignment.centerLeft,
-      ),
-      actions: [
-        // Nút thông báo
-        Consumer<NotificationService>(
-          builder: (context, service, child) {
-            return Stack(
-              children: [
-                IconButton(
-                  onPressed: () {
-                    Navigator.pushNamed(context, '/notifications');
-                  },
-                  icon: const Icon(
-                    Icons.notifications_outlined,
-                    color: Colors.white,
-                    size: 28,
-                  ),
-                  tooltip: 'Thông báo',
-                ),
-                if (service.unreadCount > 0)
-                  Positioned(
-                    right: 8,
-                    top: 8,
-                    child: Container(
-                      padding: const EdgeInsets.all(2),
-                      decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      constraints: const BoxConstraints(
-                        minWidth: 16,
-                        minHeight: 16,
-                      ),
-                      child: Text(
-                        '${service.unreadCount}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-              ],
-            );
-          },
-        ),
-        const SizedBox(width: 8),
-      ],
-    );
-  }
-
-  /// Phần chào và ngày tháng
-  Widget _buildGreeting() {
+  // =======================================================================
+  // ✨ MỚI: AppBar tùy chỉnh (Phong cách màn hình Nhân Viên)
+  // =======================================================================
+  PreferredSize _buildCustomAppBar() {
     final String greeting = _getGreeting();
     final String today = DateFormat("dd/MM/yyyy").format(DateTime.now());
 
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            greeting,
-            style: TextStyle(color: Colors.grey.shade600, fontSize: 16),
+    return PreferredSize(
+      // ✨ MỚI: Chiều cao 160px để chứa 3 hàng thông tin
+      preferredSize: const Size.fromHeight(160.0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16.0),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [_lightPurpleColor, _primaryColor],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-          const SizedBox(height: 4),
-          Text(
-            today,
-            style: const TextStyle(
-              color: Colors.black87,
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+        ),
+        child: SafeArea(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Hàng 1: Chào & Chuông
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    greeting,
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 16,
+                    ),
+                  ),
+                  Consumer<NotificationService>(
+                    builder: (context, service, child) {
+                      return Stack(
+                        children: [
+                          IconButton(
+                            onPressed: () {
+                              Navigator.pushNamed(context, '/notifications');
+                            },
+                            icon: const Icon(
+                              Icons.notifications_outlined,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            tooltip: 'Thông báo',
+                          ),
+                          if (service.unreadCount > 0)
+                            Positioned(
+                              right: 8,
+                              top: 8,
+                              child: Container(
+                                padding: const EdgeInsets.all(2),
+                                decoration: BoxDecoration(
+                                  color: Colors.red,
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                constraints: const BoxConstraints(
+                                  minWidth: 16,
+                                  minHeight: 16,
+                                ),
+                                child: Text(
+                                  '${service.unreadCount}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
 
-  /// ✨ SỬA: Phần tóm tắt dạng Card, thêm InkWell
-  Widget _buildSummarySection() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16.0),
-      child: Row(
-        children: [
-          Expanded(
-            // ✨ SỬA: Thêm InkWell để bấm
-            child: InkWell(
-              onTap: () {
-                _tabController.animateTo(0); // Chuyển đến tab "Chưa thanh toán"
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: _buildSummaryBox(
-                "Chưa thanh toán",
-                _chuaThanhToan.length,
-                Colors.orangeAccent, // ✨ SỬA: Đổi màu text
+              // Hàng 2: Ngày & Logo
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    today,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  Image.asset(
+                    "assets/icon/app_icon.png",
+                    height: 40,
+                    width: 90,
+                    fit: BoxFit.contain,
+                  ),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            // ✨ SỬA: Thêm InkWell để bấm
-            child: InkWell(
-              onTap: () {
-                _tabController.animateTo(1); // Chuyển đến tab "Đã thanh toán"
-              },
-              borderRadius: BorderRadius.circular(16),
-              child: _buildSummaryBox(
-                "Đã thanh toán",
-                _daThanhToan.length,
-                Colors.greenAccent, // ✨ SỬA: Đổi màu text
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+              const SizedBox(height: 12),
 
-  /// ✨ SỬA: Widget `_buildSummaryBox` - Đã xóa Icon
-  Widget _buildSummaryBox(String title, int count, Color textColor) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      // ✨ SỬA: Bỏ màu nền nhẹ
-      color: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 26.5,
-        ), // Tăng padding dọc
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          crossAxisAlignment: CrossAxisAlignment.center, // Căn giữa
-          children: [
-            Text(
-              title,
-              style: TextStyle(
-                color: Colors.grey.shade800,
-                fontWeight: FontWeight.w600,
-                fontSize: 14,
+              // Hàng 3: Tóm tắt hóa đơn
+              Row(
+                children: [
+                  Icon(
+                    Icons.receipt_long,
+                    color: Colors.white.withOpacity(0.9),
+                    size: 18,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    "Chưa TT: ",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    "${_chuaThanhToan.length}",
+                    style: const TextStyle(
+                      color: Colors.orangeAccent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Text(
+                    "Đã TT: ",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    "${_daThanhToan.length}",
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
-              overflow: TextOverflow.ellipsis,
-              maxLines: 1,
-            ),
-            const SizedBox(height: 8), // Tăng khoảng cách
-            Text(
-              "$count",
-              style: TextStyle(
-                color: textColor, // ✨ SỬA: Dùng màu text được truyền vào
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -561,7 +526,6 @@ class _HoaDonScreenState extends State<HoaDonScreen>
       itemBuilder: (context, index) {
         final hd = list[index];
         final isPaid = hd.trangThai == "Đã thanh toán";
-        // ✨ SỬA: Đổi màu tag trạng thái cho nhất quán
         final color = isPaid ? Colors.green : Colors.orange.shade700;
         final ngay = hd.ngayLap != null
             ? DateFormat('dd/MM/yyyy').format(hd.ngayLap!)
@@ -687,7 +651,7 @@ class _HoaDonScreenState extends State<HoaDonScreen>
   /// Nút FAB
   Widget _buildFloatingActionButton() {
     return FloatingActionButton(
-      backgroundColor: _primaryColor, // ✨ Đã dùng màu gốc
+      backgroundColor: _primaryColor,
       onPressed: () async {
         final result = await Navigator.push(
           context,
@@ -726,7 +690,7 @@ class _HoaDonScreenState extends State<HoaDonScreen>
         }
       },
       backgroundColor: Colors.white,
-      selectedItemColor: _primaryColor, // ✨ Đã dùng màu gốc
+      selectedItemColor: _primaryColor,
       unselectedItemColor: Colors.grey.shade600,
       type: BottomNavigationBarType.fixed,
       items: const [
