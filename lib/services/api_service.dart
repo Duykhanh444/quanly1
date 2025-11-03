@@ -9,7 +9,6 @@ import '../models/khohang.dart';
 import '../models/hoadon.dart';
 import '../models/hoadon_item.dart';
 import '../api_config.dart';
-// ✨ SỬA LỖI: Xóa import 'package://...' và import trùng lặp
 import 'package:flutter/foundation.dart';
 
 class ApiService {
@@ -19,11 +18,11 @@ class ApiService {
   static String get baseUrlNhanVien => '$_baseUrl/NhanVien';
   static String get baseUrlKhoHang => '$_baseUrl/KhoHang';
   static String get baseUrlHoaDon => '$_baseUrl/HoaDon';
-
-  // ⚠️ URL Auth
   static String get baseUrlAuth => '$_baseUrl/Auth';
 
-  // ⚠️ Biến token
+  // ✨ THÊM BASE URL MỚI CHO PASSWORD RESET ✨
+  static String get baseUrlPasswordReset => '$_baseUrl/PasswordReset';
+
   static String? token;
 
   // --------------------- ĐĂNG KÝ ---------------------
@@ -49,8 +48,7 @@ class ApiService {
     }
   }
 
-  // --------------------- ĐĂNG NHẬP (ĐÃ SỬA) ---------------------
-  /// Trả về Map chứa thông tin user nếu thành công, ngược lại trả về null.
+  // --------------------- ĐĂNG NHẬP ---------------------
   static Future<Map<String, dynamic>?> dangNhap({
     required String username,
     required String password,
@@ -64,26 +62,13 @@ class ApiService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        token = data['token']; // Lưu token vào service
-
-        // ✨ TRẢ VỀ DATA NGƯỜI DÙNG ✨
-        // ⚠️==============================================================⚠️
-        // ⚠️ (KHU VỰC 1) BẠN PHẢI KIỂM TRA CHỖ NÀY!
-        // ⚠️ API của bạn trả về tên người dùng và email ở đâu?
-        // ⚠️ Ví dụ: nếu API trả về { "token": "...", "user": { "tenDangNhap": "Khanh12", "email": "a@b.c" } }
-        // ⚠️ thì bạn phải sửa 2 dòng dưới thành:
-        // ⚠️ final userData = data['user'] ?? {};
-        // ⚠️ 'userName': userData['tenDangNhap'] ?? 'User',
-        // ⚠️ 'userEmail': userData['email'] ?? 'email@example.com',
-        // ⚠️==============================================================⚠️
-
-        final userData = data['user'] ?? {}; // Lấy object user, hoặc rỗng
+        token = data['token'];
+        final userData = data['user'] ?? {};
 
         return {
           'token': token,
-          'userName': userData['username'] ?? 'User', // <-- SỬA KEY NÀY
-          'userEmail':
-              userData['email'] ?? 'email@example.com', // <-- SỬA KEY NÀY
+          'userName': userData['username'] ?? 'User',
+          'userEmail': userData['email'] ?? 'email@example.com',
         };
       } else {
         print('Login failed: ${response.statusCode} ${response.body}');
@@ -91,7 +76,7 @@ class ApiService {
     } catch (e) {
       print('Exception dangNhap: $e');
     }
-    return null; // Trả về null nếu thất bại
+    return null;
   }
 
   static Map<String, String> get _headersAuth => {
@@ -490,7 +475,6 @@ class ApiService {
       return "${ApiConfig.host}/images/placeholder.jpg";
     }
     if (path.startsWith('http')) return path;
-    // ✅ Sửa đúng đường dẫn ảnh theo thư mục thực tế
     return "${ApiConfig.host}/uploads/$path";
   }
 
@@ -507,40 +491,26 @@ class ApiService {
   }
 
   // --------------------- TÀI KHOẢN ---------------------
-
-  // ✨ (HÀM MỚI) Lấy thông tin cá nhân (dùng cho HomeScreen fix lỗi "User")
   static Future<Map<String, dynamic>> layThongTinCaNhan() async {
     try {
-      // ⚠️==============================================================⚠️
-      // ⚠️ (KHU VỰC 2) BẠN PHẢI KIỂM TRA CHỖ NÀY!
-      // ⚠️ 1. Endpoint (đường dẫn) '/profile' đã đúng chưa?
-      // ⚠️    (Có thể API của bạn là '/me' hoặc '/auth/info'...)
-      // ⚠️ 2. Cấu trúc JSON trả về có giống hàm login không?
-      // ⚠️    Nếu API trả về { "tenDangNhap": "Khanh12", "email": "a@b.c" }
-      // ⚠️    Bạn phải sửa 2 dòng dưới thành:
-      // ⚠️    'username': data['tenDangNhap'] ?? 'User',
-      // ⚠️    'email': data['email'] ?? 'email@example.com',
-      // ⚠️==============================================================⚠️
       final response = await http.get(
-        Uri.parse('$baseUrlAuth/profile'), // <-- SỬA ĐƯỜNG DẪN NÀY NẾU CẦN
+        Uri.parse('$baseUrlAuth/profile'),
         headers: _headersAuth,
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         return {
-          'username': data['username'] ?? 'User', // <-- SỬA KEY NÀY
-          'email': data['email'] ?? 'email@example.com', // <-- SỬA KEY NÀY
+          'username': data['username'] ?? 'User',
+          'email': data['email'] ?? 'email@example.com',
         };
       }
     } catch (e) {
       print("Exception layThongTinCaNhan: $e");
     }
-    // Trả về map mặc định nếu lỗi
     return {'username': 'User', 'email': 'email@example.com'};
   }
 
-  /// Cập nhật thông tin hồ sơ người dùng
   static Future<bool> updateProfile({
     required String username,
     required String email,
@@ -559,7 +529,6 @@ class ApiService {
       );
 
       if (response.statusCode == 200 || response.statusCode == 204) {
-        // 200 hoặc 204 chấp nhận là thành công tuỳ backend
         return true;
       } else {
         print(
@@ -573,7 +542,6 @@ class ApiService {
     }
   }
 
-  /// Đổi mật khẩu (tên tiếng Việt)
   static Future<bool> doiMatKhau({
     required String oldPassword,
     required String newPassword,
@@ -583,7 +551,7 @@ class ApiService {
         Uri.parse('$baseUrlAuth/change-password'),
         headers: _headersAuth,
         body: jsonEncode({
-          'currentPassword': oldPassword, // ✅ tên đúng với API backend
+          'currentPassword': oldPassword,
           'newPassword': newPassword,
         }),
       );
@@ -601,13 +569,78 @@ class ApiService {
     }
   }
 
-  /// Alias bằng tiếng Anh để UI gọi nếu dùng tên changePassword(...)
   static Future<bool> changePassword({
     required String oldPassword,
     required String newPassword,
   }) async {
     return await doiMatKhau(oldPassword: oldPassword, newPassword: newPassword);
   }
+
+  // 🔽🔽🔽 HÀM QUÊN MẬT KHẨU (ĐÃ SỬA LẠI URL) 🔽🔽🔽
+
+  /// BƯỚC 1: Yêu cầu gửi mã khôi phục mật khẩu qua email
+  static Future<bool> requestPasswordReset(String email) async {
+    try {
+      final response = await http.post(
+        // ✨ SỬA URL NÀY ✨
+        Uri.parse('$baseUrlPasswordReset/request-reset'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'email': email}),
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Yêu cầu reset password đã được gửi đi cho: $email");
+        return true;
+      } else {
+        print(
+          "❌ Flutter requestPasswordReset thất bại: ${response.statusCode} ${response.body}",
+        );
+        return false;
+      }
+    } catch (e) {
+      print(
+        "Exception Flutter requestPasswordReset: $e",
+      ); // Thêm print để xem lỗi kết nối
+      return false;
+    }
+  }
+
+  /// BƯỚC 2: Gửi mã khôi phục và mật khẩu mới để đặt lại
+  static Future<bool> resetPassword({
+    required String email,
+    required String token, // Mã code từ email
+    required String newPassword,
+  }) async {
+    try {
+      final response = await http.post(
+        // ✨ SỬA URL NÀY ✨
+        Uri.parse('$baseUrlPasswordReset/reset'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'email': email,
+          'token': token,
+          'newPassword': newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        print("✅ Đặt lại mật khẩu thành công cho: $email");
+        return true;
+      } else {
+        print(
+          "❌ Flutter resetPassword thất bại: ${response.statusCode} ${response.body}",
+        );
+        return false;
+      }
+    } catch (e) {
+      print(
+        "Exception Flutter resetPassword: $e",
+      ); // Thêm print để xem lỗi kết nối
+      return false;
+    }
+  }
+
+  // 🔼🔼🔼 KẾT THÚC HÀM QUÊN MẬT KHẨU 🔼🔼🔼
 
   static Future<bool> themHoacSuaKhoHangJson(Map<String, dynamic> data) async {
     try {
@@ -620,7 +653,6 @@ class ApiService {
         if (token != null) 'Authorization': 'Bearer $token',
       };
 
-      // ✅ Chỉ dùng POST (backend đã tự xử lý thêm/sửa)
       final response = await http.post(
         url,
         headers: headers,
@@ -640,7 +672,6 @@ class ApiService {
     }
   }
 
-  // 🧩 Kiểm tra kho hàng theo mã
   static Future<KhoHang?> timKhoTheoMa(String maKho) async {
     try {
       final url = Uri.parse('$baseUrlKhoHang/TimTheoMa/$maKho');
@@ -655,7 +686,6 @@ class ApiService {
     return null;
   }
 
-  // 🧩 Tạo kho mới nếu chưa tồn tại (sau khi quét QR)
   static Future<KhoHang?> taoKhoSauKhiQuetQR(
     Map<String, dynamic> dataQR,
   ) async {
@@ -663,19 +693,17 @@ class ApiService {
       final maKho = dataQR['maKho'];
       if (maKho == null) return null;
 
-      // 1️⃣ Kiểm tra tồn tại
       final khoTonTai = await timKhoTheoMa(maKho);
       if (khoTonTai != null) {
         print('⚠️ Kho đã tồn tại: ${khoTonTai.tenKho}');
         return khoTonTai;
       }
 
-      // 2️⃣ Tạo mới kho nếu chưa có
       final khoMoi = KhoHang(
         id: 0,
         tenKho: dataQR['tenKho'] ?? 'Kho chưa đặt tên',
-        ghiChu: dataQR['ghiChu'] ?? '', // nếu có trong QR
-        giaTri: 0.0, // hoặc để null nếu không có
+        ghiChu: dataQR['ghiChu'] ?? '',
+        giaTri: 0.0,
         ngayNhap: DateTime.now(),
         trangThai: 'Hoạt động',
       );

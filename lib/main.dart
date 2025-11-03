@@ -5,11 +5,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:provider/provider.dart';
 
-// ✨ Thêm các import này
-import 'dart:io'; // Để làm việc với File
-// ✨ SỬA LỖI IMPORT: Bỏ '/image' thừa
-import 'package:image_picker/image_picker.dart'; // Để chọn ảnh
-import 'package:permission_handler/permission_handler.dart'; // Để xin quyền
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 
 import 'services/notification_service.dart';
 import 'screens/notification_screen.dart';
@@ -22,6 +20,10 @@ import 'screens/show_qr_screen.dart';
 import 'screens/api_settings_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
+
+// ✨ THÊM 2 IMPORT CHO MÀN HÌNH MỚI ✨
+import 'screens/forgot_password_screen.dart';
+import 'screens/reset_password_screen.dart';
 
 import 'models/hoadon.dart';
 import 'models/khohang.dart';
@@ -79,14 +81,14 @@ class QuanLyXuongApp extends StatelessWidget {
           ),
           debugShowCheckedModeBanner: false,
           builder: EasyLoading.init(),
-          onGenerateRoute: _buildPageRoute,
+          onGenerateRoute: _buildPageRoute, // Sử dụng hàm này
           home: const SplashScreen(),
         );
       },
     );
   }
 
-  /// 🔹 Custom animation khi chuyển trang
+  /// 🔹 Custom animation khi chuyển trang (ĐÃ CẬP NHẬT)
   Route<dynamic> _buildPageRoute(RouteSettings settings) {
     Widget page;
     switch (settings.name) {
@@ -99,6 +101,18 @@ class QuanLyXuongApp extends StatelessWidget {
       case '/register':
         page = const RegisterScreen();
         break;
+
+      // ✨ THÊM 2 CASE MỚI CHO QUÊN MẬT KHẨU ✨
+      case '/forgot-password':
+        page = const ForgotPasswordScreen();
+        break;
+      case '/reset-password':
+        // Lấy email từ arguments khi chuyển trang
+        final email = settings.arguments as String?;
+        page = ResetPasswordScreen(email: email ?? 'Lỗi email');
+        break;
+      // ✨ KẾT THÚC PHẦN THÊM MỚI ✨
+
       case '/home':
         page = const HomeScreen();
         break;
@@ -120,7 +134,6 @@ class QuanLyXuongApp extends StatelessWidget {
       case '/doanh-thu':
         page = const DoanhThuScreen();
         break;
-      // ✨ Thêm route cho màn hình thông báo
       case '/notifications':
         page = const NotificationScreen();
         break;
@@ -191,7 +204,6 @@ class _SplashScreenState extends State<SplashScreen>
     super.dispose();
   }
 
-  // ✨ HÀM NÀY ĐÚNG: Luôn đi đến Welcome Screen
   Future<void> _navigateToWelcome() async {
     await Future.delayed(const Duration(seconds: 3));
     if (context.mounted) {
@@ -254,12 +266,9 @@ class _SplashScreenState extends State<SplashScreen>
   }
 }
 
-/// ================== WELCOME SCREEN (ĐÃ SỬA LẠI) ==================
-// ✨ Quay lại StatelessWidget vì không cần kiểm tra token nữa
+/// ================== WELCOME SCREEN ==================
 class WelcomeScreen extends StatelessWidget {
   const WelcomeScreen({super.key});
-
-  // ✨ Bỏ initState và _checkTokenAndNavigate
 
   @override
   Widget build(BuildContext context) {
@@ -305,7 +314,6 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 50),
             ElevatedButton(
-              // Sử dụng pushNamed để có thể quay lại Welcome Screen
               onPressed: () => Navigator.pushNamed(context, '/login'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: Colors.white,
@@ -319,7 +327,6 @@ class WelcomeScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             OutlinedButton(
-              // Sử dụng pushNamed để có thể quay lại Welcome Screen
               onPressed: () => Navigator.pushNamed(context, '/register'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.white,
@@ -351,25 +358,20 @@ class _HomeScreenState extends State<HomeScreen> {
   int _soSanPham = 0;
   int _soHoaDon = 0;
   double _tongDoanhThuThang = 0;
-  String _userName = "User"; // Giá trị mặc định
+  String _userName = "User";
   String? _avatarPath;
 
   @override
   void initState() {
     super.initState();
-    // Tải đồng thời data chính và data người dùng
     _loadData();
     _loadUserData();
   }
 
-  // ✨ SỬA LẠI HÀM NÀY ĐỂ DÙNG KEY AVATAR THEO USERNAME
   Future<void> _loadUserData() async {
     final prefs = await SharedPreferences.getInstance();
-    String? currentUserName = prefs.getString(
-      "userName",
-    ); // Lấy username hiện tại
+    String? currentUserName = prefs.getString("userName");
 
-    // 1. Kiểm tra xem tên có bị thiếu hoặc là "User" không
     if (currentUserName == null ||
         currentUserName.isEmpty ||
         currentUserName == "User") {
@@ -384,19 +386,17 @@ class _HomeScreenState extends State<HomeScreen> {
         }
       } catch (e) {
         print("Lỗi khi tải thông tin cá nhân: $e");
-        currentUserName = "User"; // Đảm bảo currentUserName không null
+        currentUserName = "User";
       }
     }
 
-    // 2. ✨ Lấy avatar path DỰA TRÊN USERNAME hiện tại
-    String avatarKey = "userAvatar_$currentUserName"; // Tạo key động
+    String avatarKey = "userAvatar_$currentUserName";
     String? currentUserAvatarPath = prefs.getString(avatarKey);
 
-    // 3. Cập nhật UI
     if (mounted) {
       setState(() {
-        _userName = currentUserName ?? "User"; // Đảm bảo _userName không null
-        _avatarPath = currentUserAvatarPath; // Gán avatar path đã lấy
+        _userName = currentUserName ?? "User";
+        _avatarPath = currentUserAvatarPath;
       });
     }
   }
@@ -408,7 +408,6 @@ class _HomeScreenState extends State<HomeScreen> {
       _loadSoKhoHang(),
       _loadSoHoaDon(),
       _loadDoanhThu(),
-      // Tải thông báo khi tải lại dữ liệu chính
       Provider.of<NotificationService>(
         context,
         listen: false,
@@ -477,7 +476,6 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  // ✨ (HÀM MỚI) Để hiển thị AccountSheet
   Future<void> _showAccountSheet() async {
     await showModalBottomSheet(
       context: context,
@@ -488,8 +486,6 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       builder: (context) => const AccountSheet(),
     ).then((_) {
-      // Tải lại dữ liệu (tên và avatar) sau khi sheet đóng
-      // Dùng hàm _loadUserData đã có sẵn
       _loadUserData();
     });
   }
@@ -501,11 +497,10 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            _buildHeader(), // Header bây giờ có thể nhấn vào avatar
+            _buildHeader(),
             Expanded(
               child: RefreshIndicator(
                 onRefresh: () async {
-                  // Khi kéo làm mới, tải lại cả data chính và data người dùng
                   await _loadData();
                   await _loadUserData();
                 },
@@ -576,11 +571,8 @@ class _HomeScreenState extends State<HomeScreen> {
           } else if (index == 3) {
             await Navigator.pushNamed(context, '/doanh-thu');
           } else if (index == 4) {
-            // ✨ Gọi hàm _showAccountSheet thay vì viết lại logic
             await _showAccountSheet();
           }
-          // Reset index về 0 sau khi chuyển trang hoặc mở sheet (giữ highlight ở trang hiện tại)
-          // Bạn có thể bỏ dòng này nếu muốn tab "Tài khoản" được highlight sau khi sheet đóng
           Future.delayed(const Duration(milliseconds: 100), () {
             if (mounted) setState(() => _currentIndex = 0);
           });
@@ -610,7 +602,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  // ✨ Widget Header (ĐÃ CẬP NHẬT VỚI LOGO APP)
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -624,9 +615,8 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       child: Row(
         children: [
-          // ✨ Bọc CircleAvatar bằng GestureDetector
           GestureDetector(
-            onTap: _showAccountSheet, // Gọi hàm hiển thị sheet khi nhấn avatar
+            onTap: _showAccountSheet,
             child: CircleAvatar(
               radius: 24,
               backgroundColor: Colors.white24,
@@ -639,9 +629,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const SizedBox(width: 12),
-          // ✨ Bọc cột Text bằng GestureDetector để mở sheet khi nhấn vào tên
           GestureDetector(
-            onTap: _showAccountSheet, // Gọi hàm hiển thị sheet khi nhấn tên
+            onTap: _showAccountSheet,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -650,7 +639,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(color: Colors.white70, fontSize: 14),
                 ),
                 Text(
-                  _userName, // Tên này đã được tải (FIXED)
+                  _userName,
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -661,16 +650,8 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           const Spacer(),
-          // ✨ Logo app đã được thêm lại với kích thước lớn hơn
-          Image.asset(
-            "assets/icon/app_icon.png",
-            width: 60,
-            height: 60,
-          ), // Kích thước 60x60
-          const SizedBox(
-            width: 8,
-          ), // Khoảng cách nhỏ giữa logo và nút thông báo
-          // Icon thông báo
+          Image.asset("assets/icon/app_icon.png", width: 60, height: 60),
+          const SizedBox(width: 8),
           Consumer<NotificationService>(
             builder: (context, service, child) {
               return Stack(
@@ -793,7 +774,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-/// ================== ACCOUNT SHEET (ĐÃ CẬP NHẬT) ==================
+/// ================== ACCOUNT SHEET ==================
 class AccountSheet extends StatefulWidget {
   const AccountSheet({super.key});
 
@@ -812,31 +793,27 @@ class _AccountSheetState extends State<AccountSheet> {
     _loadUser();
   }
 
-  // ✨ SỬA LẠI HÀM NÀY ĐỂ DÙNG KEY AVATAR THEO USERNAME
   Future<void> _loadUser() async {
     final prefs = await SharedPreferences.getInstance();
-    // Lấy username trước để tạo key avatar
     String currentUserName = prefs.getString("userName") ?? "Tên người dùng";
-    String avatarKey = "userAvatar_$currentUserName"; // Key động cho avatar
+    String avatarKey = "userAvatar_$currentUserName";
 
     setState(() {
-      _userName = currentUserName; // Cập nhật username
+      _userName = currentUserName;
       _userEmail = prefs.getString("userEmail") ?? "email@example.com";
-      _avatarPath = prefs.getString(avatarKey); // Lấy avatar bằng key động
+      _avatarPath = prefs.getString(avatarKey);
     });
   }
 
-  // ✨ SỬA LẠI HÀM NÀY: BỎ XÓA AVATAR
   Future<void> _logout() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove("token");
-    // await prefs.remove("userAvatar"); // ✨ BỎ DÒNG NÀY
+    // Không xóa avatar
     await prefs.remove("userName");
     await prefs.remove("userEmail");
     ApiService.token = null;
 
     if (mounted) {
-      // Chuyển về Welcome Screen sau khi logout
       Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(builder: (context) => const WelcomeScreen()),
@@ -845,9 +822,7 @@ class _AccountSheetState extends State<AccountSheet> {
     }
   }
 
-  // ✨ (TÍNH NĂNG XEM AVATAR)
   Future<void> _viewAvatar() async {
-    // Nếu không có avatar (đang là icon mặc định) thì không làm gì cả
     if (_avatarPath == null) {
       return;
     }
@@ -862,7 +837,6 @@ class _AccountSheetState extends State<AccountSheet> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // InteractiveViewer cho phép người dùng zoom ảnh
               InteractiveViewer(
                 panEnabled: false,
                 minScale: 0.5,
@@ -873,7 +847,6 @@ class _AccountSheetState extends State<AccountSheet> {
                 ),
               ),
               const SizedBox(height: 10),
-              // Nút đóng dialog
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: const Text(
@@ -892,9 +865,7 @@ class _AccountSheetState extends State<AccountSheet> {
     );
   }
 
-  // ✨ SỬA LẠI HÀM NÀY ĐỂ DÙNG KEY AVATAR THEO USERNAME
   Future<void> _pickAvatar(ImageSource source) async {
-    // 1. Yêu cầu quyền
     PermissionStatus status;
     if (source == ImageSource.camera) {
       status = await Permission.camera.request();
@@ -906,39 +877,30 @@ class _AccountSheetState extends State<AccountSheet> {
       }
     }
 
-    // 2. Kiểm tra quyền
     if (status.isGranted) {
       final ImagePicker picker = ImagePicker();
-      // 3. Chọn ảnh
       final XFile? image = await picker.pickImage(
         source: source,
         maxWidth: 800,
         imageQuality: 70,
       );
 
-      // 4. Lưu và cập nhật UI
       if (image != null && mounted) {
         final prefs = await SharedPreferences.getInstance();
-        // ✨ Lấy username để tạo key lưu avatar
-        String currentUserName =
-            prefs.getString("userName") ?? "User"; // Lấy username hiện tại
+        String currentUserName = prefs.getString("userName") ?? "User";
         if (currentUserName == "User" || currentUserName.isEmpty) {
-          // Xử lý trường hợp không lấy được username (hiếm khi xảy ra ở đây)
           EasyLoading.showError('Không thể lưu avatar, vui lòng thử lại.');
           return;
         }
-        String avatarKey = "userAvatar_$currentUserName"; // Tạo key động
+        String avatarKey = "userAvatar_$currentUserName";
 
-        // ✨ Lưu avatar bằng key động
         await prefs.setString(avatarKey, image.path);
 
         setState(() {
           _avatarPath = image.path;
         });
-        // Bạn có thể không cần Provider ở đây nữa vì HomeScreen sẽ tự load lại khi sheet đóng
       }
     } else {
-      // Xử lý trường hợp từ chối quyền
       if (mounted) {
         EasyLoading.showError(
           'Bạn cần cấp quyền để dùng tính năng này',
@@ -948,7 +910,6 @@ class _AccountSheetState extends State<AccountSheet> {
     }
   }
 
-  // ✨ Hàm hiển thị lựa chọn Camera/Gallery (Không đổi)
   void _showAvatarOptions() {
     showModalBottomSheet(
       context: context,
@@ -979,7 +940,6 @@ class _AccountSheetState extends State<AccountSheet> {
     );
   }
 
-  // ✨ HÀM BUILD (Không đổi)
   @override
   Widget build(BuildContext context) {
     return SafeArea(
@@ -993,12 +953,10 @@ class _AccountSheetState extends State<AccountSheet> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              // SỬ DỤNG STACK ĐỂ THÊM NÚT SỬA LÊN TRÊN AVATAR
               Stack(
                 children: [
-                  // Avatar (bấm để XEM)
                   GestureDetector(
-                    onTap: _viewAvatar, // Bấm vào ảnh để XEM
+                    onTap: _viewAvatar,
                     child: CircleAvatar(
                       radius: 45,
                       backgroundColor: const Color(0xFF4A00E0).withOpacity(0.2),
@@ -1014,7 +972,6 @@ class _AccountSheetState extends State<AccountSheet> {
                           : null,
                     ),
                   ),
-                  // Nút "Sửa" (bấm để THAY ĐỔI)
                   Positioned(
                     bottom: 0,
                     right: 0,
@@ -1023,7 +980,7 @@ class _AccountSheetState extends State<AccountSheet> {
                       shape: const CircleBorder(),
                       elevation: 2,
                       child: InkWell(
-                        onTap: _showAvatarOptions, // Bấm vào icon để THAY ĐỔI
+                        onTap: _showAvatarOptions,
                         customBorder: const CircleBorder(),
                         child: Container(
                           padding: const EdgeInsets.all(4),
@@ -1043,7 +1000,7 @@ class _AccountSheetState extends State<AccountSheet> {
               ),
               const SizedBox(height: 12),
               Text(
-                _userName, // Tên này đã được tải từ SharedPreferences
+                _userName,
                 style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -1058,7 +1015,7 @@ class _AccountSheetState extends State<AccountSheet> {
                 icon: Icons.qr_code_2,
                 title: "Mã QR",
                 onTap: () {
-                  Navigator.pop(context); // Đóng sheet trước khi chuyển trang
+                  Navigator.pop(context);
                   Navigator.pushNamed(context, "/show-qr");
                 },
               ),
@@ -1066,14 +1023,13 @@ class _AccountSheetState extends State<AccountSheet> {
                 icon: Icons.settings_outlined,
                 title: "Cài đặt tài khoản",
                 onTap: () async {
-                  Navigator.pop(context); // Đóng sheet trước khi chuyển trang
+                  Navigator.pop(context);
                   final result = await Navigator.push(
                     context,
                     MaterialPageRoute(
                       builder: (context) => const AccountSettingsScreen(),
                     ),
                   );
-                  // Không cần gọi _loadUser ở đây nữa
                 },
               ),
               const Divider(height: 24, indent: 16, endIndent: 16),
@@ -1097,7 +1053,6 @@ class _AccountSheetState extends State<AccountSheet> {
     );
   }
 
-  // ✨ HÀM BUILD MENU ITEM (Không đổi)
   Widget _buildMenuItem({
     required IconData icon,
     required String title,

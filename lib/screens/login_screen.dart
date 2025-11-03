@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
+import 'forgot_password_screen.dart'; // Import màn hình mới
 import 'register_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -54,7 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  /// ✅ Hàm đăng nhập (ĐÃ CẬP NHẬT)
+  /// ✅ Hàm đăng nhập
   Future<void> _dangNhap() async {
     final username = _usernameController.text.trim();
     final password = _passwordController.text.trim();
@@ -68,9 +69,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = true);
 
-    // ✨ THAY ĐỔI 1: Nhận về Map thay vì bool
-    // Giả định ApiService.dangNhap trả về Map<String, dynamic>?
-    // Map chứa {'token': '...', 'userName': '...', 'userEmail': '...'}
     final Map<String, dynamic>? loginData = await ApiService.dangNhap(
       username: username,
       password: password,
@@ -78,30 +76,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _isLoading = false);
 
-    // ✨ THAY ĐỔI 2: Kiểm tra loginData (thay vì `if (success)`)
     if (loginData != null && loginData.containsKey('token')) {
-      // Đăng nhập thành công
       final prefs = await SharedPreferences.getInstance();
 
-      // 1. Lưu token (đã được làm trong ApiService, nhưng lưu lại cho chắc)
       await prefs.setString('token', loginData['token']);
-
-      // 2. ✨ (FIX LỖI) LƯU TÊN VÀ EMAIL
-      //     Hãy đảm bảo key 'userName' và 'userEmail' khớp với API của bạn trả về
       await prefs.setString('userName', loginData['userName'] ?? 'User');
       await prefs.setString(
         'userEmail',
         loginData['userEmail'] ?? 'email@example.com',
       );
 
-      // 3. Lưu thông tin "Ghi nhớ" (nếu có)
       await _saveLoginInfo(username, password);
 
       if (mounted) {
         Navigator.pushReplacementNamed(context, '/home');
       }
     } else {
-      // Đăng nhập thất bại
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("❌ Sai tài khoản hoặc mật khẩu")),
@@ -189,6 +179,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   vertical: 40,
                 ),
                 child: Column(
+                  // ⭐️ ĐÂY LÀ PHẦN SỬA LỖI LOGIC
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Text(
@@ -228,15 +219,38 @@ class _LoginScreenState extends State<LoginScreen> {
                             isPassword: true,
                           ),
                           const SizedBox(height: 8),
+
+                          // ✨ CẬP NHẬT ROW NÀY
                           Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Checkbox(
-                                value: _rememberMe,
-                                onChanged: (value) {
-                                  setState(() => _rememberMe = value ?? false);
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: _rememberMe,
+                                    onChanged: (value) {
+                                      setState(
+                                        () => _rememberMe = value ?? false,
+                                      );
+                                    },
+                                  ),
+                                  const Text("Ghi nhớ"),
+                                ],
+                              ),
+                              // ✨ THÊM NÚT NÀY
+                              TextButton(
+                                child: const Text(
+                                  "Quên mật khẩu?",
+                                  style: TextStyle(color: Colors.deepPurple),
+                                ),
+                                onPressed: () {
+                                  // Chuyển sang màn hình quên mật khẩu
+                                  Navigator.pushNamed(
+                                    context,
+                                    '/forgot-password',
+                                  );
                                 },
                               ),
-                              const Text("Ghi nhớ đăng nhập"),
                             ],
                           ),
                           const SizedBox(height: 12),
